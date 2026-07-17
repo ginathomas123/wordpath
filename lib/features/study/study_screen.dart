@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../app/fonts.dart';
 
 import '../../app/theme.dart';
 import '../../data/bible_data.dart';
@@ -7,17 +7,22 @@ import '../../data/study_data.dart';
 
 /// The "Path to [book]" study screen reached from a book's Study action: a
 /// header, a horizontally scrolling chapter checklist, and a vertical stack of
-/// leather chapter cards.
+/// dreamy, soft-focus chapter cards.
 class StudyScreen extends StatelessWidget {
   const StudyScreen({super.key, required this.book});
 
   final BibleBook book;
 
-  /// Leather textures + tints the chapter cards cycle through for visual rhythm.
-  static const List<(String, Color)> _cardStyles = [
-    (LeatherTexture.brown, Color(0xFF6B4226)),
-    (LeatherTexture.sage, Color(0xFF4F6B4E)),
-    (LeatherTexture.indigo, Color(0xFF3E6B8A)),
+  /// Soft, blurred atmospheric photos the chapter cards cycle through so each
+  /// chapter carries its own mood — warm dune light, blue-gold water, pink
+  /// clouds, misty forest, a sun flare, and golden bokeh.
+  static const List<String> _cardImages = [
+    'assets/covers/blur_dune.jpg',
+    'assets/covers/blur_water.jpg',
+    'assets/covers/blur_clouds.jpg',
+    'assets/covers/blur_forest.jpg',
+    'assets/covers/blur_sun.jpg',
+    'assets/covers/blur_gold.jpg',
   ];
 
   @override
@@ -41,12 +46,10 @@ class StudyScreen extends StatelessWidget {
                 itemCount: chapters.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 18),
                 itemBuilder: (context, index) {
-                  final style = _cardStyles[index % _cardStyles.length];
                   return _ChapterCard(
                     book: book,
                     chapter: chapters[index],
-                    texture: style.$1,
-                    tint: style.$2,
+                    image: _cardImages[index % _cardImages.length],
                   );
                 },
               ),
@@ -80,7 +83,7 @@ class _Header extends StatelessWidget {
               children: [
                 Text(
                   book.title,
-                  style: GoogleFonts.newsreader(
+                  style: AppFonts.serif(
                     color: AppColors.ink,
                     fontSize: 24,
                     fontWeight: FontWeight.w600,
@@ -88,7 +91,7 @@ class _Header extends StatelessWidget {
                 ),
                 Text(
                   'Path to ${book.title}',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.sans(
                     color: AppColors.inkSoft,
                     fontSize: 13,
                   ),
@@ -140,7 +143,7 @@ class _PathLabel extends StatelessWidget {
       padding: const EdgeInsets.only(right: 4),
       child: Text(
         "TODAY'S PATH",
-        style: GoogleFonts.inter(
+        style: AppFonts.sans(
           color: AppColors.inkSoft,
           fontSize: 11,
           fontWeight: FontWeight.w700,
@@ -177,7 +180,7 @@ class _ChapterChip extends StatelessWidget {
           ],
           Text(
             'Ch ${chapter.number}',
-            style: GoogleFonts.inter(
+            style: AppFonts.sans(
               color: done ? AppColors.ink : AppColors.inkSoft,
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -193,14 +196,12 @@ class _ChapterCard extends StatelessWidget {
   const _ChapterCard({
     required this.book,
     required this.chapter,
-    required this.texture,
-    required this.tint,
+    required this.image,
   });
 
   final BibleBook book;
   final StudyChapter chapter;
-  final String texture;
-  final Color tint;
+  final String image;
 
   @override
   Widget build(BuildContext context) {
@@ -211,22 +212,20 @@ class _ChapterCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            ColorFiltered(
-              colorFilter: ColorFilter.mode(tint, BlendMode.color),
-              child: Image.asset(texture, fit: BoxFit.cover, cacheWidth: 700),
-            ),
+            Image.asset(image, fit: BoxFit.cover, cacheWidth: 800),
             // Legibility scrim, heavier toward the bottom where the text sits.
+            // These photos are often bright, so the bottom is nearly opaque.
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0x22000000),
-                    Color(0x11000000),
-                    Color(0xCC000000),
+                    Color(0x33000000),
+                    Color(0x14000000),
+                    Color(0xE0000000),
                   ],
-                  stops: [0.0, 0.4, 1.0],
+                  stops: [0.0, 0.42, 1.0],
                 ),
               ),
             ),
@@ -245,7 +244,7 @@ class _ChapterCard extends StatelessWidget {
                   const Spacer(),
                   Text(
                     chapter.title,
-                    style: GoogleFonts.newsreader(
+                    style: AppFonts.serif(
                       color: Colors.white,
                       fontSize: 25,
                       height: 1.05,
@@ -257,7 +256,7 @@ class _ChapterCard extends StatelessWidget {
                     chapter.preview,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.sans(
                       color: Colors.white.withValues(alpha: 0.82),
                       fontSize: 13,
                       height: 1.35,
@@ -288,7 +287,7 @@ class _NumberPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.inter(
+        style: AppFonts.sans(
           color: AppColors.ink,
           fontSize: 11,
           fontWeight: FontWeight.w700,

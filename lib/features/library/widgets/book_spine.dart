@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../app/fonts.dart';
 
 import '../../../data/bible_data.dart';
 
@@ -96,7 +96,7 @@ class BookSpine extends StatelessWidget {
                   children: [
                     Text(
                       book.attribution.toUpperCase(),
-                      style: GoogleFonts.inter(
+                      style: AppFonts.sans(
                         color: foil.withValues(alpha: 0.78),
                         fontSize: 7,
                         fontWeight: FontWeight.w600,
@@ -107,7 +107,7 @@ class BookSpine extends StatelessWidget {
                     Text(
                       book.title,
                       maxLines: 3,
-                      style: GoogleFonts.newsreader(
+                      style: AppFonts.serif(
                         color: Colors.white,
                         fontSize: 18.7,
                         height: 1.02,

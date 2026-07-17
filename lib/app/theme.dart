@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
+import 'fonts.dart';
 
 /// WordPath visual language: warm paper background, near-black ink, and a
-/// serif display face (Playfair Display) paired with a clean sans (Inter).
+/// serif display face (Newsreader) paired with a clean sans (Inter).
 class AppColors {
   const AppColors._();
 
@@ -28,20 +29,21 @@ class AppTheme {
       ),
     );
 
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
-      displayLarge: GoogleFonts.newsreader(
+    final textTheme = base.textTheme.apply(fontFamily: AppFonts.sansFamily)
+        .copyWith(
+      displayLarge: AppFonts.serif(
         color: AppColors.ink,
         fontWeight: FontWeight.w600,
       ),
-      displayMedium: GoogleFonts.newsreader(
+      displayMedium: AppFonts.serif(
         color: AppColors.ink,
         fontWeight: FontWeight.w600,
       ),
-      headlineMedium: GoogleFonts.newsreader(
+      headlineMedium: AppFonts.serif(
         color: AppColors.ink,
         fontWeight: FontWeight.w600,
       ),
-      titleLarge: GoogleFonts.newsreader(
+      titleLarge: AppFonts.serif(
         color: AppColors.ink,
         fontWeight: FontWeight.w600,
       ),

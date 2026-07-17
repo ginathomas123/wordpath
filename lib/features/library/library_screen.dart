@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../app/fonts.dart';
 
 import '../../app/theme.dart';
-import '../../data/bible_data.dart';
+import 'add_menu.dart';
 import 'book_open_route.dart';
+import 'library_controller.dart';
 import 'widgets/book_shelf.dart';
 import 'widgets/intro_item.dart';
 
@@ -42,6 +43,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
 
   @override
   Widget build(BuildContext context) {
+    final sections = ref.watch(libraryProvider);
     return Scaffold(
       backgroundColor: AppColors.paper,
       floatingActionButton: IntroItem(
@@ -50,7 +52,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         end: 0.9,
         dy: 0,
         scaleFrom: 0.4,
-        child: _AddButton(onPressed: () {}),
+        child: _AddButton(onPressed: () => showAddMenu(context)),
       ),
       bottomNavigationBar: IntroItem(
         animation: _intro,
@@ -76,10 +78,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
               ),
             ),
             SliverList.separated(
-              itemCount: kBibleSections.length,
+              itemCount: sections.length,
               separatorBuilder: (_, _) => const SizedBox(height: 30),
               itemBuilder: (context, index) => BookShelf(
-                section: kBibleSections[index],
+                section: sections[index],
                 intro: _intro,
                 introStart: _sectionStart(index),
                 onBookTap: (book, origin) =>
@@ -105,7 +107,7 @@ class _Header extends StatelessWidget {
         children: [
           Text(
             'THE HOLY',
-            style: GoogleFonts.inter(
+            style: AppFonts.sans(
               color: AppColors.inkSoft,
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -115,7 +117,7 @@ class _Header extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             'BIBLE',
-            style: GoogleFonts.newsreader(
+            style: AppFonts.serif(
               color: AppColors.ink,
               fontSize: 36,
               fontWeight: FontWeight.w600,
@@ -175,7 +177,7 @@ class _ExploreBar extends StatelessWidget {
             onPressed: () {},
             child: Text(
               'Explore All Books',
-              style: GoogleFonts.inter(
+              style: AppFonts.sans(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.3,

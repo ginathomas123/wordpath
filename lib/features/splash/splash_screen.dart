@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../app/fonts.dart';
 
 import '../../app/theme.dart';
 import '../library/library_screen.dart';
@@ -53,7 +53,7 @@ class _SplashScreenState extends State<SplashScreen>
           ),
           child: Text(
             'WordPath',
-            style: GoogleFonts.newsreader(
+            style: AppFonts.serif(
               color: AppColors.ink,
               fontSize: 48,
               fontWeight: FontWeight.w500,

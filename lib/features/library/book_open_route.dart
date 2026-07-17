@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../app/fonts.dart';
 
 import '../../app/theme.dart';
 import '../../data/bible_data.dart';
@@ -293,7 +293,7 @@ class _InsidePage extends StatelessWidget {
                   children: [
                     Text(
                       book.attribution.toUpperCase(),
-                      style: GoogleFonts.inter(
+                      style: AppFonts.sans(
                         color: AppColors.inkFaint,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
@@ -303,7 +303,7 @@ class _InsidePage extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       book.title,
-                      style: GoogleFonts.newsreader(
+                      style: AppFonts.serif(
                         color: AppColors.ink,
                         fontSize: 30,
                         height: 1.05,
@@ -328,7 +328,7 @@ class _InsidePage extends StatelessWidget {
                           physics: const BouncingScrollPhysics(),
                           child: Text(
                             about,
-                            style: GoogleFonts.newsreader(
+                            style: AppFonts.serif(
                               color: AppColors.inkSoft,
                               fontSize: 14,
                               height: 1.5,
@@ -397,7 +397,7 @@ class _PageButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
           child: Text(
             label,
-            style: GoogleFonts.inter(
+            style: AppFonts.sans(
               color: filled ? AppColors.paper : AppColors.ink,
               fontSize: 13,
               fontWeight: FontWeight.w600,

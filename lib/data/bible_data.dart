@@ -201,9 +201,8 @@ const List<BibleSection> kBibleSections = [
       BibleBook(
         title: 'Marriage',
         attribution: 'Ephesians 5',
-        texture: _topicTexture,
+        texture: _imgMarriage,
         color: _topicMarriage,
-        tint: _topicMarriage,
         about:
             'What Scripture teaches about covenant love, sacrifice, and building '
             'a marriage that reflects Christ and the church.',
@@ -211,9 +210,8 @@ const List<BibleSection> kBibleSections = [
       BibleBook(
         title: 'Anxiety',
         attribution: 'Philippians 4',
-        texture: _topicTexture,
+        texture: _imgAnxiety,
         color: _topicAnxiety,
-        tint: _topicAnxiety,
         about:
             'Bringing worry to God in prayer and receiving the peace that guards '
             'the heart and mind in Christ Jesus.',
@@ -221,9 +219,8 @@ const List<BibleSection> kBibleSections = [
       BibleBook(
         title: 'Anger',
         attribution: 'James 1',
-        texture: _topicTexture,
+        texture: _imgAnger,
         color: _topicAnger,
-        tint: _topicAnger,
         about:
             'Being slow to anger and quick to listen, and facing conflict with '
             'patience, wisdom, and self-control.',
@@ -231,9 +228,8 @@ const List<BibleSection> kBibleSections = [
       BibleBook(
         title: 'Fear',
         attribution: 'Psalm 23',
-        texture: _topicTexture,
+        texture: _imgFear,
         color: _topicFear,
-        tint: _topicFear,
         about:
             'Finding courage and peace in God\'s presence when life feels '
             'uncertain, and trusting Him with what we cannot control.',
@@ -241,9 +237,8 @@ const List<BibleSection> kBibleSections = [
       BibleBook(
         title: 'Hope',
         attribution: 'Romans 15',
-        texture: _topicTexture,
+        texture: _imgHope,
         color: _topicHope,
-        tint: _topicHope,
         about:
             'Anchoring the heart in God\'s promises and the sure, living hope we '
             'have through the resurrection.',
@@ -251,9 +246,8 @@ const List<BibleSection> kBibleSections = [
       BibleBook(
         title: 'Gratitude',
         attribution: 'Psalm 100',
-        texture: _topicTexture,
+        texture: _imgGratitude,
         color: _topicGratitude,
-        tint: _topicGratitude,
         about:
             'Cultivating a thankful heart in every season and giving thanks to '
             'God in all circumstances.',
@@ -262,14 +256,148 @@ const List<BibleSection> kBibleSections = [
   ),
 ];
 
-/// Topical study covers share one natural brown texture and differ only by a
-/// subtle earthy tint from a single warm palette, so the set reads as a
-/// cohesive, natural collection distinct from the canonical book covers.
-const String _topicTexture = LeatherTexture.brownPlain;
+/// Each topical study wears its own mood photo (soft-focus, atmospheric) chosen
+/// to match the feeling of the topic, so the row reads as an emotional,
+/// personality-rich set that is visually distinct from the leather-bound books.
+/// These are shown untinted so the photo's real colors carry the mood.
+const String _imgMarriage = 'assets/covers/topic_marriage.jpg'; // warm bokeh
+const String _imgAnxiety = 'assets/covers/topic_anxiety.jpg'; // storm clouds
+const String _imgAnger = 'assets/covers/topic_anger.jpg'; // fire sparks
+const String _imgFear = 'assets/covers/topic_fear.jpg'; // foggy forest
+const String _imgHope = 'assets/covers/topic_hope.jpg'; // sun rays
+const String _imgGratitude = 'assets/covers/topic_gratitude.jpg'; // golden grass
 
-const Color _topicMarriage = Color(0xFF7A5140); // warm chestnut
-const Color _topicAnxiety = Color(0xFF5E5647); // cool taupe
-const Color _topicAnger = Color(0xFF6E4632); // burnt umber
-const Color _topicFear = Color(0xFF4B3E33); // dark walnut
-const Color _topicHope = Color(0xFF9A7038); // golden tan
-const Color _topicGratitude = Color(0xFF6A6448); // olive brown
+// Representative accent colors (used for the small foil label on each cover).
+const Color _topicMarriage = Color(0xFF9A7B57); // warm gold
+const Color _topicAnxiety = Color(0xFF3E5566); // storm blue
+const Color _topicAnger = Color(0xFF8A3B1E); // ember orange
+const Color _topicFear = Color(0xFF4B5259); // misty slate
+const Color _topicHope = Color(0xFFB0763A); // sunrise amber
+const Color _topicGratitude = Color(0xFF9A6E2E); // golden field
+
+/// Canonical section titles, shared between [kBibleSections] and the add
+/// catalog so an added item lands in the right shelf.
+class SectionTitles {
+  const SectionTitles._();
+
+  static const oldTestament = 'Old Testament';
+  static const newTestament = 'New Testament';
+  static const topics = 'Study by Topic';
+}
+
+/// An item the user can add to their library from the + menu. [section] must
+/// match a [BibleSection.title] so the book lands on the correct shelf.
+class AddableItem {
+  const AddableItem({required this.book, required this.section});
+
+  final BibleBook book;
+  final String section;
+}
+
+/// The catalog offered in the floating "+" menu: extra books and topics not on
+/// the shelves by default. Books reuse the leather textures; topics wear the
+/// same dreamy soft-focus photos as the study path for a cohesive mood.
+const List<AddableItem> kAddableItems = [
+  // --- Books ---
+  AddableItem(
+    section: SectionTitles.oldTestament,
+    book: BibleBook(
+      title: 'Psalms',
+      attribution: 'David',
+      texture: LeatherTexture.brownGrain,
+      color: Color(0xFF7A5A2E),
+      tint: Color(0xFF6E5A34),
+      about:
+          'The songbook of Scripture — prayers of lament, thanksgiving, and '
+          'praise that give words to every season of the heart.',
+    ),
+  ),
+  AddableItem(
+    section: SectionTitles.oldTestament,
+    book: BibleBook(
+      title: 'Proverbs',
+      attribution: 'Solomon',
+      texture: LeatherTexture.concrete,
+      color: Color(0xFF8A6B3A),
+      tint: Color(0xFF8A6B3A),
+      about:
+          'Practical wisdom for daily life: sayings on speech, work, money, and '
+          'the fear of the Lord as the beginning of knowledge.',
+    ),
+  ),
+  AddableItem(
+    section: SectionTitles.newTestament,
+    book: BibleBook(
+      title: 'Philippians',
+      attribution: 'Paul',
+      texture: LeatherTexture.redTextile,
+      color: Color(0xFF7A2E2C),
+      tint: Color(0xFF7A2E2C),
+      about:
+          'A letter of joy written from prison, urging believers to rejoice '
+          'always and to press on toward the goal in Christ.',
+    ),
+  ),
+  AddableItem(
+    section: SectionTitles.newTestament,
+    book: BibleBook(
+      title: 'Revelation',
+      attribution: 'John',
+      texture: LeatherTexture.slate,
+      color: Color(0xFF3B2E4A),
+      tint: Color(0xFF3B2E4A),
+      about:
+          'A vision of the risen Christ and the end of the story — judgment, '
+          'hope, and the promise of a new heaven and new earth.',
+    ),
+  ),
+  // --- Topics ---
+  AddableItem(
+    section: SectionTitles.topics,
+    book: BibleBook(
+      title: 'Faith',
+      attribution: 'Hebrews 11',
+      texture: 'assets/covers/blur_sun.jpg',
+      color: Color(0xFFB0763A),
+      about:
+          'Trusting God for what we cannot yet see, and stepping forward on the '
+          'strength of his promises.',
+    ),
+  ),
+  AddableItem(
+    section: SectionTitles.topics,
+    book: BibleBook(
+      title: 'Forgiveness',
+      attribution: 'Colossians 3',
+      texture: 'assets/covers/blur_dune.jpg',
+      color: Color(0xFF8C7A5A),
+      about:
+          'Releasing debts as we have been forgiven, and letting grace heal what '
+          'bitterness would keep bound.',
+    ),
+  ),
+  AddableItem(
+    section: SectionTitles.topics,
+    book: BibleBook(
+      title: 'Joy',
+      attribution: 'Psalm 16',
+      texture: 'assets/covers/blur_clouds.jpg',
+      color: Color(0xFF8A6E8C),
+      about:
+          'The deep gladness of life with God, a joy that runs beneath every '
+          'circumstance and cannot be taken away.',
+    ),
+  ),
+  AddableItem(
+    section: SectionTitles.topics,
+    book: BibleBook(
+      title: 'Patience',
+      attribution: 'Romans 12',
+      texture: 'assets/covers/blur_forest.jpg',
+      color: Color(0xFF4F6470),
+      about:
+          'Waiting well — steady endurance and gentleness with others as God '
+          'works out his purposes in his time.',
+    ),
+  ),
+];

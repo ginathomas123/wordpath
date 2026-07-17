@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../app/fonts.dart';
 
 import '../../../app/theme.dart';
 import '../../../data/bible_data.dart';
@@ -51,7 +51,7 @@ class BookShelf extends StatelessWidget {
                 Expanded(
                   child: Text(
                     section.title,
-                    style: GoogleFonts.inter(
+                    style: AppFonts.sans(
                       color: AppColors.inkSoft,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
@@ -61,7 +61,7 @@ class BookShelf extends StatelessWidget {
                 ),
                 Text(
                   '${section.books.length} ${section.itemNoun}',
-                  style: GoogleFonts.inter(
+                  style: AppFonts.sans(
                     color: AppColors.inkFaint,
                     fontSize: 13,
                   ),
