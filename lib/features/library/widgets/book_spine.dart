@@ -22,7 +22,14 @@ class BookSpine extends StatelessWidget {
   Widget build(BuildContext context) {
     final foil = _foilColor(book.tint ?? book.color);
 
-    Widget leather = Image.asset(book.texture, fit: BoxFit.cover);
+    // Cap the decoded bitmap size: the source leather photos are multi-megapixel
+    // but never render wider than the enlarged (opened) cover, so decoding them
+    // full-res just wastes GPU memory and causes jank on the emulator.
+    Widget leather = Image.asset(
+      book.texture,
+      fit: BoxFit.cover,
+      cacheWidth: 700,
+    );
     if (book.tint != null) {
       leather = ColorFiltered(
         colorFilter: ColorFilter.mode(book.tint!, BlendMode.color),
@@ -101,8 +108,8 @@ class BookSpine extends StatelessWidget {
                       book.title,
                       maxLines: 3,
                       style: GoogleFonts.newsreader(
-                        color: foil,
-                        fontSize: 17,
+                        color: Colors.white,
+                        fontSize: 18.7,
                         height: 1.02,
                         fontWeight: FontWeight.w600,
                         shadows: [

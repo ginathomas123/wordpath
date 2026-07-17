@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../app/theme.dart';
 import '../../data/bible_data.dart';
+import 'book_open_route.dart';
 import 'widgets/book_shelf.dart';
 import 'widgets/intro_item.dart';
 
@@ -81,7 +82,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 section: kBibleSections[index],
                 intro: _intro,
                 introStart: _sectionStart(index),
-                onBookTap: (_) {},
+                onBookTap: (book, origin) =>
+                    Navigator.of(context).push(bookOpenRoute(book, origin)),
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),

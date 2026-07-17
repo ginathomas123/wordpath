@@ -26,7 +26,7 @@ class BookShelf extends StatelessWidget {
   final Animation<double> intro;
   final double introStart;
 
-  final void Function(BibleBook book)? onBookTap;
+  final void Function(BibleBook book, Rect origin)? onBookTap;
 
   static const double _bookWidth = 118;
   static const double _bookHeight = 176;
@@ -60,7 +60,7 @@ class BookShelf extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${section.books.length} books',
+                  '${section.books.length} ${section.itemNoun}',
                   style: GoogleFonts.inter(
                     color: AppColors.inkFaint,
                     fontSize: 13,
@@ -93,15 +93,25 @@ class BookShelf extends StatelessWidget {
                       scaleFrom: 0.9,
                       child: Align(
                         alignment: Alignment.topCenter,
-                        child: GestureDetector(
-                          onTap: onBookTap == null
-                              ? null
-                              : () => onBookTap!(book),
-                          behavior: HitTestBehavior.opaque,
-                          child: BookSpine(
-                            book: book,
-                            width: _bookWidth,
-                            height: _bookHeight,
+                        child: Builder(
+                          builder: (bookContext) => GestureDetector(
+                            onTap: onBookTap == null
+                                ? null
+                                : () {
+                                    final box = bookContext.findRenderObject()
+                                        as RenderBox?;
+                                    if (box == null) return;
+                                    final origin =
+                                        box.localToGlobal(Offset.zero) &
+                                            box.size;
+                                    onBookTap!(book, origin);
+                                  },
+                            behavior: HitTestBehavior.opaque,
+                            child: BookSpine(
+                              book: book,
+                              width: _bookWidth,
+                              height: _bookHeight,
+                            ),
                           ),
                         ),
                       ),
