@@ -4,7 +4,7 @@
          here or network requests silently fail. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="my_app"
+        android:label="WordPath"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
