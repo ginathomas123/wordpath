@@ -30,7 +30,7 @@ class WordPathWidgetProvider : HomeWidgetProvider() {
         for (widgetId in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.wp_widget)
 
-            val category = widgetData.getString("wp_category", null) ?: "CONTINUE READING"
+            val category = widgetData.getString("wp_category", null) ?: "CONTINUE STUDYING"
             val title = widgetData.getString("wp_title", null) ?: "Genesis 1"
             views.setTextViewText(R.id.wp_category, category)
             views.setTextViewText(R.id.wp_title, title)

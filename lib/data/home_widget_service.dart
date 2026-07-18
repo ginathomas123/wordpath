@@ -21,7 +21,7 @@ class HomeWidgetService {
   static Future<void> update(int bookIndex, int chapter) async {
     final safeIndex = bookIndex.clamp(0, reader.bibleBooks.length - 1);
     final name = reader.bibleBooks[safeIndex].name;
-    await HomeWidget.saveWidgetData<String>('wp_category', 'CONTINUE READING');
+    await HomeWidget.saveWidgetData<String>('wp_category', 'CONTINUE STUDYING');
     await HomeWidget.saveWidgetData<String>('wp_title', '$name $chapter');
     await HomeWidget.updateWidget(androidName: _androidProvider);
   }

@@ -33,7 +33,7 @@
             android:id="@+id/wp_category"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="CONTINUE READING"
+            android:text="CONTINUE STUDYING"
             android:textColor="#C98A5A"
             android:textSize="11sp"
             android:textStyle="bold"
