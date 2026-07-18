@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../app/fonts.dart';
 import '../../app/theme.dart';
 import '../../app/theme_mode_controller.dart';
 import '../../app/widgets/app_icon_button.dart';
+import '../../data/home_widget_service.dart';
+import '../reader/data/bible_data.dart' as reader;
 import '../reader/reader_launch.dart';
 import 'add_menu.dart';
 import 'book_open_route.dart';
@@ -30,16 +35,41 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     duration: const Duration(milliseconds: 900),
   );
 
+  StreamSubscription<Uri?>? _widgetClickSub;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _intro.forward());
+    _initWidgetLaunch();
   }
 
   @override
   void dispose() {
+    _widgetClickSub?.cancel();
     _intro.dispose();
     super.dispose();
+  }
+
+  /// Refresh the widget's card and wire up "tap the widget → resume reading".
+  Future<void> _initWidgetLaunch() async {
+    await HomeWidgetService.refreshFromLastRead();
+    _widgetClickSub = HomeWidget.widgetClicked.listen(_handleWidgetUri);
+    final launchUri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+    _handleWidgetUri(launchUri);
+  }
+
+  Future<void> _handleWidgetUri(Uri? uri) async {
+    if (uri == null || uri.host != 'continue') return;
+    final (book, chapter) = await HomeWidgetService.lastRead();
+    if (!mounted) return;
+    final safe = book.clamp(0, reader.bibleBooks.length - 1);
+    openReader(
+      context,
+      bookTitle: reader.bibleBooks[safe].name,
+      chapter: chapter,
+      immersive: true,
+    );
   }
 
   /// Fraction of the timeline where each section begins its cascade.

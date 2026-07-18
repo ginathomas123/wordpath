@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../app/widgets/app_icon_button.dart';
+import '../../../data/home_widget_service.dart';
 import '../../../data/read_progress.dart';
 import '../data/bible_data.dart';
 import '../data/bible_repository.dart';
@@ -267,6 +268,8 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('lastBookIndex', _bookIndex);
     await prefs.setInt('lastChapter', _chapter);
+    // Keep the home-screen widget's "continue reading" card in sync.
+    HomeWidgetService.update(_bookIndex, _chapter);
   }
 
   // ── navigation ─────────────────────────────────────────────────────────────
