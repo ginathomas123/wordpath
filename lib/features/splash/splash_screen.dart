@@ -44,7 +44,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.paper,
+      backgroundColor: context.palette.paper,
       body: Center(
         child: FadeTransition(
           opacity: CurvedAnimation(
@@ -54,7 +54,7 @@ class _SplashScreenState extends State<SplashScreen>
           child: Text(
             'WordPath',
             style: AppFonts.serif(
-              color: AppColors.ink,
+              color: context.palette.ink,
               fontSize: 48,
               fontWeight: FontWeight.w500,
               letterSpacing: 0.5,

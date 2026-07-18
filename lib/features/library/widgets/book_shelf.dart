@@ -52,7 +52,7 @@ class BookShelf extends StatelessWidget {
                   child: Text(
                     section.title,
                     style: AppFonts.sans(
-                      color: AppColors.inkSoft,
+                      color: context.palette.inkSoft,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.2,
@@ -62,7 +62,7 @@ class BookShelf extends StatelessWidget {
                 Text(
                   '${section.books.length} ${section.itemNoun}',
                   style: AppFonts.sans(
-                    color: AppColors.inkFaint,
+                    color: context.palette.inkFaint,
                     fontSize: 13,
                   ),
                 ),
@@ -161,9 +161,9 @@ class _FrostedGlass extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                AppColors.paper.withValues(alpha: 0.42),
-                AppColors.paper.withValues(alpha: 0.20),
-                AppColors.paper.withValues(alpha: 0.34),
+                context.palette.paper.withValues(alpha: 0.42),
+                context.palette.paper.withValues(alpha: 0.20),
+                context.palette.paper.withValues(alpha: 0.34),
               ],
               stops: const [0.0, 0.4, 1.0],
             ),

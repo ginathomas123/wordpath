@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../app/fonts.dart';
 import '../../app/theme.dart';
@@ -60,7 +61,7 @@ class _AddMenu extends ConsumerWidget {
               maxHeight: MediaQuery.of(context).size.height * 0.62,
             ),
             child: Material(
-              color: AppColors.paper,
+              color: context.palette.paper,
               elevation: 12,
               shadowColor: Colors.black.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(24),
@@ -116,7 +117,7 @@ class _MenuHeader extends StatelessWidget {
                 Text(
                   'Add to your library',
                   style: AppFonts.serif(
-                    color: AppColors.ink,
+                    color: context.palette.ink,
                     fontSize: 19,
                     fontWeight: FontWeight.w600,
                   ),
@@ -125,7 +126,7 @@ class _MenuHeader extends StatelessWidget {
                 Text(
                   'Books and topics to explore',
                   style: AppFonts.sans(
-                    color: AppColors.inkSoft,
+                    color: context.palette.inkSoft,
                     fontSize: 12.5,
                   ),
                 ),
@@ -134,7 +135,7 @@ class _MenuHeader extends StatelessWidget {
           ),
           IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.close, color: AppColors.inkSoft, size: 22),
+            icon: Icon(LucideIcons.x, color: context.palette.inkSoft, size: 22),
             splashRadius: 20,
           ),
         ],
@@ -155,7 +156,7 @@ class _GroupLabel extends StatelessWidget {
       child: Text(
         text,
         style: AppFonts.sans(
-          color: AppColors.inkFaint,
+          color: context.palette.inkFaint,
           fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.5,
@@ -191,7 +192,7 @@ class _AddRow extends ConsumerWidget {
                     Text(
                       book.title,
                       style: AppFonts.serif(
-                        color: AppColors.ink,
+                        color: context.palette.ink,
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
                       ),
@@ -200,7 +201,7 @@ class _AddRow extends ConsumerWidget {
                     Text(
                       book.attribution,
                       style: AppFonts.sans(
-                        color: AppColors.inkSoft,
+                        color: context.palette.inkSoft,
                         fontSize: 12.5,
                       ),
                     ),
@@ -212,10 +213,10 @@ class _AddRow extends ConsumerWidget {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: AppColors.ink,
+                  color: context.palette.ink,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.add, color: Colors.white, size: 18),
+                        child: Icon(LucideIcons.plus, color: context.palette.paper, size: 18),
               ),
             ],
           ),
@@ -278,13 +279,13 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.check_circle_outline,
-              color: AppColors.inkFaint, size: 34),
+                  Icon(LucideIcons.circleCheck,
+                      color: context.palette.inkFaint, size: 34),
           const SizedBox(height: 10),
           Text(
             "Everything's on your shelf",
             style: AppFonts.serif(
-              color: AppColors.ink,
+              color: context.palette.ink,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -293,7 +294,7 @@ class _EmptyState extends StatelessWidget {
           Text(
             'You\'ve added all the available books and topics.',
             textAlign: TextAlign.center,
-            style: AppFonts.sans(color: AppColors.inkSoft, fontSize: 12.5),
+            style: AppFonts.sans(color: context.palette.inkSoft, fontSize: 12.5),
           ),
         ],
       ),

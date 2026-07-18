@@ -1,10 +1,13 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../app/fonts.dart';
 
 import '../../app/theme.dart';
+import '../../app/widgets/app_icon_button.dart';
 import '../../data/bible_data.dart';
+import '../reader/reader_launch.dart';
 import '../study/study_screen.dart';
 import 'widgets/book_spine.dart';
 
@@ -15,8 +18,8 @@ Route<void> bookOpenRoute(BibleBook book, Rect origin) {
   return PageRouteBuilder<void>(
     opaque: false,
     barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 700),
-    reverseTransitionDuration: const Duration(milliseconds: 560),
+    transitionDuration: const Duration(milliseconds: 900),
+    reverseTransitionDuration: const Duration(milliseconds: 680),
     pageBuilder: (context, animation, secondaryAnimation) =>
         _BookOpenScreen(book: book, origin: origin, animation: animation),
   );
@@ -35,9 +38,6 @@ class _BookOpenScreen extends StatelessWidget {
   final BibleBook book;
   final Rect origin;
   final Animation<double> animation;
-
-  /// How far the front cover swings open, in radians (~155°).
-  static const double _maxCoverAngle = 2.70;
 
   @override
   Widget build(BuildContext context) {
@@ -63,13 +63,12 @@ class _BookOpenScreen extends StatelessWidget {
         double phase(double a, double b, [Curve c = Curves.easeOutCubic]) =>
             c.transform(((t - a) / (b - a)).clamp(0.0, 1.0));
 
-        final fly = phase(0.0, 0.55);
-        final scrim = phase(0.0, 0.45, Curves.easeOut);
-        final cover = phase(0.48, 1.0, Curves.easeInOutCubic);
-        final chrome = phase(0.75, 1.0, Curves.easeOut);
+        final fly = phase(0.0, 0.5);
+        final scrim = phase(0.0, 0.42, Curves.easeOut);
+        final open = phase(0.34, 1.0, Curves.easeInOutCubic);
+        final chrome = phase(0.8, 1.0, Curves.easeOut);
 
         final rect = Rect.lerp(origin, target, fly)!;
-        final angle = cover * _maxCoverAngle;
 
         return Material(
           type: MaterialType.transparency,
@@ -88,8 +87,7 @@ class _BookOpenScreen extends StatelessWidget {
                 rect: rect,
                 child: _BookStage(
                   book: book,
-                  coverAngle: angle,
-                  contentOpacity: cover,
+                  open: open,
                   lift: fly,
                 ),
               ),
@@ -98,9 +96,11 @@ class _BookOpenScreen extends StatelessWidget {
                 right: 12,
                 child: Opacity(
                   opacity: chrome,
-                  child: _CircleIcon(
-                    icon: Icons.close,
-                    onTap: () => Navigator.of(context).maybePop(),
+                  child: AppIconButton(
+                    icon: LucideIcons.x,
+                    background: Colors.white.withValues(alpha: 0.14),
+                    foreground: Colors.white,
+                    onPressed: () => Navigator.of(context).maybePop(),
                   ),
                 ),
               ),
@@ -112,21 +112,19 @@ class _BookOpenScreen extends StatelessWidget {
   }
 }
 
-/// The book itself at its current [rect]: a revealed inside page with the front
-/// cover hinged on the spine ([coverAngle] radians) swinging open on top.
+/// The book itself at its current [rect]: the inside page beneath, with the
+/// front cover lifting straight up and dissolving away on top ([open] 0→1).
 class _BookStage extends StatelessWidget {
   const _BookStage({
     required this.book,
-    required this.coverAngle,
-    required this.contentOpacity,
+    required this.open,
     required this.lift,
   });
 
   final BibleBook book;
-  final double coverAngle;
 
-  /// 0 while closed, 1 when fully open — drives the inside page reveal.
-  final double contentOpacity;
+  /// 0 = closed (cover down), 1 = open (cover lifted away, page revealed).
+  final double open;
 
   /// 0 on the shelf, 1 at center — grows the drop shadow as the book lifts.
   final double lift;
@@ -151,90 +149,70 @@ class _BookStage extends StatelessWidget {
             ),
           ),
         ),
-        // The inside page revealed as the cover swings away.
-        Positioned.fill(child: _InsidePage(book: book, opacity: contentOpacity)),
-        // The hinged front cover.
+        // The inside page sits solid underneath and settles in quickly, so the
+        // cover reveals a crisp page rather than a muddy cross-fade.
         Positioned.fill(
-          child: _HingedCover(book: book, angle: coverAngle),
+          child: _InsidePage(book: book, opacity: (open / 0.3).clamp(0.0, 1.0)),
         ),
+        // The front cover — a lid that lifts up and off to unveil the page.
+        Positioned.fill(child: _LiftCover(book: book, progress: open)),
       ],
     );
   }
 }
 
-/// The leather front cover, hinged on its left (spine) edge. Past 90° it shows a
-/// parchment endpaper back-face so it reads like a real opening cover.
-class _HingedCover extends StatelessWidget {
-  const _HingedCover({required this.book, required this.angle});
+/// The leather front cover treated as a lid: it drifts straight up, scales up a
+/// touch (toward the viewer), and fades out to reveal the page beneath. No side
+/// flap, so it never clips and the composition stays centered.
+class _LiftCover extends StatelessWidget {
+  const _LiftCover({required this.book, required this.progress});
 
   final BibleBook book;
-  final double angle;
+
+  /// 0 = fully covering the page, 1 = lifted away and gone.
+  final double progress;
 
   @override
   Widget build(BuildContext context) {
-    final showBack = angle > math.pi / 2;
+    final p = progress.clamp(0.0, 1.0);
+    if (p >= 1.0) return const SizedBox.shrink();
 
-    final transform = Matrix4.identity()
-      ..setEntry(3, 2, 0.0016)
-      ..rotateY(-angle);
+    // The cover stays solid while it visibly travels up (so you read the lift),
+    // then fades out only in the final stretch as it clears the page — a clear
+    // "unveil what's underneath" rather than a blur.
+    final opacity = 1 - Curves.easeIn.transform(((p - 0.6) / 0.4).clamp(0.0, 1.0));
 
-    return Transform(
-      alignment: Alignment.centerLeft,
-      transform: transform,
-      child: showBack
-          ? Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.identity()..rotateY(math.pi),
-              child: const _Endpaper(),
-            )
-          : LayoutBuilder(
-              builder: (context, c) => BookSpine(
-                book: book,
-                width: c.maxWidth,
-                height: c.maxHeight,
+    return IgnorePointer(
+      child: Opacity(
+        opacity: opacity,
+        child: LayoutBuilder(
+          builder: (context, c) {
+            // Travels up most of its own height and lifts slightly toward the
+            // viewer, casting a growing shadow so it reads as a lid coming off.
+            return Transform.translate(
+              offset: Offset(0, -c.maxHeight * 0.72 * p),
+              child: Transform.scale(
+                scale: 1 + 0.05 * p,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.30 * p),
+                        blurRadius: 20 + 30 * p,
+                        offset: Offset(0, 10 + 22 * p),
+                      ),
+                    ],
+                  ),
+                  child: BookSpine(
+                    book: book,
+                    width: c.maxWidth,
+                    height: c.maxHeight,
+                  ),
+                ),
               ),
-            ),
-    );
-  }
-}
-
-/// The inside of the front cover (shown once it has swung past vertical).
-class _Endpaper extends StatelessWidget {
-  const _Endpaper();
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.centerRight,
-            end: Alignment.centerLeft,
-            colors: [Color(0xFFF3ECDD), Color(0xFFE7DDC6)],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 12,
-            ),
-          ],
-        ),
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: Container(
-            width: 10,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerRight,
-                end: Alignment.centerLeft,
-                colors: [
-                  Colors.black.withValues(alpha: 0.22),
-                  Colors.black.withValues(alpha: 0.0),
-                ],
-              ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
@@ -294,7 +272,7 @@ class _InsidePage extends StatelessWidget {
                     Text(
                       book.attribution.toUpperCase(),
                       style: AppFonts.sans(
-                        color: AppColors.inkFaint,
+                        color: AppPalette.light.inkFaint,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 2,
@@ -304,7 +282,7 @@ class _InsidePage extends StatelessWidget {
                     Text(
                       book.title,
                       style: AppFonts.serif(
-                        color: AppColors.ink,
+                        color: AppPalette.light.ink,
                         fontSize: 30,
                         height: 1.05,
                         fontWeight: FontWeight.w600,
@@ -329,7 +307,7 @@ class _InsidePage extends StatelessWidget {
                           child: Text(
                             about,
                             style: AppFonts.serif(
-                              color: AppColors.inkSoft,
+                              color: AppPalette.light.inkSoft,
                               fontSize: 14,
                               height: 1.5,
                             ),
@@ -342,7 +320,10 @@ class _InsidePage extends StatelessWidget {
                         _PageButton(
                           label: 'Read',
                           filled: true,
-                          onTap: () {},
+                          // Replace the opened-book overlay so backing out of
+                          // the reader returns to the shelf, not the book.
+                          onTap: () =>
+                              openReader(context, bookTitle: book.title, replace: true),
                         ),
                         const SizedBox(width: 10),
                         _PageButton(
@@ -383,12 +364,12 @@ class _PageButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: filled ? AppColors.ink : Colors.transparent,
+      color: filled ? AppPalette.light.ink : Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(22),
         side: filled
             ? BorderSide.none
-            : BorderSide(color: AppColors.ink.withValues(alpha: 0.35)),
+            : BorderSide(color: AppPalette.light.ink.withValues(alpha: 0.35)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(22),
@@ -398,34 +379,11 @@ class _PageButton extends StatelessWidget {
           child: Text(
             label,
             style: AppFonts.sans(
-              color: filled ? AppColors.paper : AppColors.ink,
+              color: filled ? AppPalette.light.paper : AppPalette.light.ink,
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CircleIcon extends StatelessWidget {
-  const _CircleIcon({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.14),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Icon(icon, color: Colors.white, size: 22),
         ),
       ),
     );
