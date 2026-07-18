@@ -150,6 +150,7 @@ class _FrostedGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.palette.isDark;
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
       child: BackdropFilter(
@@ -168,7 +169,9 @@ class _FrostedGlass extends StatelessWidget {
               stops: const [0.0, 0.4, 1.0],
             ),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.35),
+              // The white hairline reads much harder against the dark shelf, so
+              // pull it back so the glass edge is felt more than seen.
+              color: Colors.white.withValues(alpha: isDark ? 0.10 : 0.35),
               width: 1,
             ),
           ),
@@ -184,7 +187,7 @@ class _FrostedGlass extends StatelessWidget {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.white.withValues(alpha: 0.30),
+                        Colors.white.withValues(alpha: isDark ? 0.10 : 0.30),
                         Colors.white.withValues(alpha: 0.0),
                       ],
                     ),
