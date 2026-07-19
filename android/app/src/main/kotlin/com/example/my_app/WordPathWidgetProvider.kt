@@ -39,10 +39,16 @@ class WordPathWidgetProvider : HomeWidgetProvider() {
             val remoteViews = if (Build.VERSION.SDK_INT >= 31) {
                 RemoteViews(
                     mapOf(
-                        SizeF(120f, 110f) to
+                        // Tiny & short: text-only, no room for books.
+                        SizeF(120f, 100f) to
                             buildViews(context, widgetId, R.layout.wp_widget_small, false, category, title),
+                        // Narrow but tall: portrait layout that keeps the book stack.
+                        SizeF(120f, 160f) to
+                            buildViews(context, widgetId, R.layout.wp_widget_tall, true, category, title),
+                        // Wide & short: the classic card + stack.
                         SizeF(240f, 110f) to
                             buildViews(context, widgetId, R.layout.wp_widget, true, category, title),
+                        // Wide & tall: card + stack + tagline.
                         SizeF(240f, 190f) to
                             buildViews(context, widgetId, R.layout.wp_widget_large, true, category, title),
                     ),

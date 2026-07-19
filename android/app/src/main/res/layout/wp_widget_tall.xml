@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wp_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/wp_widget_bg"
+    android:padding="18dp">
+
+    <TextView
+        android:id="@+id/wp_wordmark"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="WORDPATH"
+        android:textColor="#D8C6B6"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.18"
+        android:fontFamily="sans-serif-medium" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp">
+
+        <StackView
+            android:id="@+id/wp_stack"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:loopViews="true"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/wp_stack_empty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="📖"
+            android:textSize="30sp" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/wp_category"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="CONTINUE STUDYING"
+        android:textColor="#C98A5A"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.10"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/wp_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Genesis 1"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:fontFamily="serif" />
+
+    <TextView
+        android:id="@+id/wp_continue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Continue  ›"
+        android:textColor="#DE7440"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+</LinearLayout>
