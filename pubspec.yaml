@@ -66,6 +66,9 @@ flutter:
 
   assets:
     - assets/covers/
+    # Cormorant fonts bundled for google_fonts so the reader renders serif
+    # instantly (no runtime download, no sans-serif flash, works offline).
+    - assets/google_fonts/
 
   fonts:
     - family: Newsreader

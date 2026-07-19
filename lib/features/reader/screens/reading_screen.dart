@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../app/fonts.dart';
 import '../../../app/widgets/app_icon_button.dart';
 import '../../../data/home_widget_service.dart';
 import '../../../data/read_progress.dart';
@@ -600,10 +601,13 @@ class _ScriptureContent extends StatelessWidget {
     final sectionKey = '${bookIndex}_$chapter';
     final sectionTitle = chapterSections[sectionKey];
 
-    final bodyStyle = GoogleFonts.cormorantGaramond(
-      fontSize: 18, height: 1.95, color: BibleColors.inkDark, letterSpacing: 0.15,
+    // Body copy uses Newsreader — a text-optimized serif — so long passages
+    // read comfortably. The display bits (chapter number, drop cap, small-caps
+    // section heading) stay Cormorant for character.
+    final bodyStyle = AppFonts.serif(
+      fontSize: 18, height: 1.7, color: BibleColors.inkDark, letterSpacing: 0.1,
     );
-    final verseNumStyle = GoogleFonts.cormorantGaramond(
+    final verseNumStyle = AppFonts.serif(
       fontSize: 10, fontWeight: FontWeight.w600, color: BibleColors.verseNumber, height: 1,
     );
 
