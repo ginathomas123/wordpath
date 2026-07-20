@@ -18,9 +18,8 @@ import '../theme/bible_theme.dart';
 import '../widgets/book_tab_rail.dart';
 import '../widgets/book_list_panel.dart';
 
-/// Warm paper for the reading surface. Matches the opened-book inside page
-/// (`book_open_route.dart`) so tapping Read dissolves seamlessly into the reader.
-const _paper = Color(0xFFFBF7EE);
+/// Clean white reading surface.
+const _paper = Color(0xFFFFFFFF);
 
 class ReadingScreen extends StatefulWidget {
   final int initialBookIndex;

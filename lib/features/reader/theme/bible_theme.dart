@@ -5,7 +5,7 @@ class BibleColors {
 
   static const leatherDark    = Color(0xFF2E1206);
   static const leatherMid     = Color(0xFF4A2012);
-  static const ivoryPaper     = Color(0xFFF9F7F3);
+  static const ivoryPaper     = Color(0xFFFFFFFF);
   static const inkDark        = Color(0xFF1A110A);
   static const inkMid         = Color(0xFF2C1810);
   static const inkLight       = Color(0xFF6B4A32);

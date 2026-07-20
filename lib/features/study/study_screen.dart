@@ -7,8 +7,11 @@ import '../../app/widgets/app_icon_button.dart';
 import '../../data/bible_data.dart';
 import '../../data/read_progress.dart';
 import '../../data/study_data.dart';
+import '../../data/study_progress.dart';
 import '../reader/data/bible_data.dart' as reader;
 import '../reader/reader_launch.dart';
+import 'data/key_verses.dart';
+import 'widgets/study_tools.dart';
 
 /// Finds the reader's canonical book for a reference name, tolerating the
 /// singular "Psalm" → "Psalms".
@@ -150,22 +153,33 @@ class StudyScreen extends StatefulWidget {
 
 class _StudyScreenState extends State<StudyScreen> {
   Set<String> _read = {};
+  StudyProgressData _progress = const StudyProgressData(
+    understood: {},
+    memorized: {},
+    reflected: {},
+  );
+
+  String get _studyId => widget.book.title;
 
   @override
   void initState() {
     super.initState();
-    _loadRead();
+    _reload();
   }
 
-  Future<void> _loadRead() async {
+  Future<void> _reload() async {
     final read = await ReadProgress.load();
-    if (mounted) setState(() => _read = read);
+    final progress = await StudyProgress.load();
+    if (mounted) setState(() { _read = read; _progress = progress; });
   }
 
   /// A card is checked when its real passage has been read (persisted) or it
   /// was seeded complete.
   bool _isRead(_StudyEntry entry) =>
       entry.seededComplete || _read.contains(entry.readKey);
+
+  bool _isUnderstood(_StudyEntry entry) =>
+      _progress.isUnderstood(_studyId, entry.readerBook, entry.readerChapter);
 
   Future<void> _openEntry(_StudyEntry entry) async {
     await openReader(
@@ -175,13 +189,38 @@ class _StudyScreenState extends State<StudyScreen> {
       immersive: true,
     );
     // Reading marks chapters read — refresh the checkmarks on return.
-    _loadRead();
+    _reload();
   }
+
+  Future<void> _openCommentary(_StudyEntry entry) async {
+    await showCommentarySheet(
+      context,
+      studyId: _studyId,
+      book: entry.readerBook,
+      chapter: entry.readerChapter,
+      accent: widget.book.color,
+    );
+    _reload();
+  }
+
+  double _frac(int done, int total) => total == 0 ? 0 : done / total;
 
   @override
   Widget build(BuildContext context) {
     final book = widget.book;
     final entries = buildStudyEntries(book);
+    final keyVerses = keyVersesFor(book.title);
+    final accent = book.color;
+
+    final readFrac = _frac(entries.where(_isRead).length, entries.length);
+    final understandFrac = _frac(entries.where(_isUnderstood).length, entries.length);
+    final memorizeFrac = keyVerses.isEmpty
+        ? 1.0
+        : _frac(keyVerses.where((kv) => _progress.isMemorized(_studyId, kv.ref)).length,
+            keyVerses.length);
+    final applyFrac = _progress.isReflected(_studyId) ? 1.0 : 0.0;
+    final mastered =
+        (readFrac + understandFrac + memorizeFrac + applyFrac) / 4 >= 0.999;
 
     return Scaffold(
       backgroundColor: context.palette.paper,
@@ -191,23 +230,58 @@ class _StudyScreenState extends State<StudyScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _Header(book: book),
+            MasteryMeter(
+              readFrac: readFrac,
+              understandFrac: understandFrac,
+              memorizeFrac: memorizeFrac,
+              applyFrac: applyFrac,
+              accent: accent,
+              onCapstone: mastered
+                  ? () => showCapstone(context,
+                      studyTitle: book.title, keyVerses: keyVerses, accent: accent)
+                  : null,
+            ),
+            const SizedBox(height: 12),
             _PathStrip(entries: entries, isRead: _isRead),
             const SizedBox(height: 8),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
                 physics: const BouncingScrollPhysics(),
-                itemCount: entries.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 18),
-                itemBuilder: (context, index) {
-                  final entry = entries[index];
-                  return _ChapterCard(
-                    entry: entry,
-                    image: StudyScreen._imageFor(book.title, index),
-                    isRead: _isRead(entry),
-                    onTap: () => _openEntry(entry),
-                  );
-                },
+                children: [
+                  for (int index = 0; index < entries.length; index++) ...[
+                    _ChapterCard(
+                      entry: entries[index],
+                      image: StudyScreen._imageFor(book.title, index),
+                      isRead: _isRead(entries[index]),
+                      understood: _isUnderstood(entries[index]),
+                      onTap: () => _openEntry(entries[index]),
+                      onCommentary: () => _openCommentary(entries[index]),
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                  const SizedBox(height: 6),
+                  _SectionLabel(text: 'Go deeper'),
+                  const SizedBox(height: 14),
+                  for (final kv in keyVerses) ...[
+                    KeyVerseCard(
+                      studyId: _studyId,
+                      keyVerse: kv,
+                      memorized: _progress.isMemorized(_studyId, kv.ref),
+                      accent: accent,
+                      onChanged: _reload,
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                  BibleBitesSection(bites: bitesFor(book.title), accent: accent),
+                  const SizedBox(height: 18),
+                  ReflectCard(
+                    studyId: _studyId,
+                    prompt: _reflectPrompt(book.title),
+                    accent: accent,
+                    onChanged: _reload,
+                  ),
+                ],
               ),
             ),
           ],
@@ -216,6 +290,30 @@ class _StudyScreenState extends State<StudyScreen> {
     );
   }
 }
+
+/// A small section divider label used in the study scroll.
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text.toUpperCase(),
+      style: AppFonts.sans(
+        color: context.palette.inkSoft,
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.2,
+      ),
+    );
+  }
+}
+
+/// A gentle, study-specific reflection prompt.
+String _reflectPrompt(String studyTitle) =>
+    'How does $studyTitle speak to your life right now — and what is one step '
+    'you can take this week in response?';
 
 class _Header extends StatelessWidget {
   const _Header({required this.book});
@@ -235,25 +333,13 @@ class _Header extends StatelessWidget {
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  book.title,
-                  style: AppFonts.serif(
-                    color: context.palette.ink,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  _todayLabel(),
-                  style: AppFonts.sans(
-                    color: context.palette.inkSoft,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
+            child: Text(
+              book.title,
+              style: AppFonts.serif(
+                color: context.palette.ink,
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           // Overflow ("⋯") menu — hidden for now.
@@ -293,35 +379,6 @@ class _PathStrip extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Today's date, e.g. "Saturday, July 18" — refreshes each day.
-String _todayLabel() {
-  const weekdays = [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-  ];
-  const months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-  final now = DateTime.now();
-  return '${weekdays[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}';
 }
 
 class _ChapterChip extends StatelessWidget {
@@ -367,13 +424,17 @@ class _ChapterCard extends StatelessWidget {
     required this.entry,
     required this.image,
     required this.isRead,
+    required this.understood,
     required this.onTap,
+    required this.onCommentary,
   });
 
   final _StudyEntry entry;
   final String image;
   final bool isRead;
+  final bool understood;
   final VoidCallback onTap;
+  final VoidCallback onCommentary;
 
   @override
   Widget build(BuildContext context) {
@@ -417,6 +478,8 @@ class _ChapterCard extends StatelessWidget {
                     children: [
                       _NumberPill(label: entry.pillLabel.toUpperCase()),
                       const Spacer(),
+                      _CommentaryButton(active: understood, onTap: onCommentary),
+                      const SizedBox(width: 8),
                       _CardCheckbox(checked: isRead),
                     ],
                   ),
@@ -472,6 +535,38 @@ class _NumberPill extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+/// Small translucent button on a chapter card that opens Matthew Henry's
+/// commentary for that passage. Fills in once the commentary has been opened.
+class _CommentaryButton extends StatelessWidget {
+  const _CommentaryButton({required this.active, required this.onTap});
+
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          color: active
+              ? Colors.white.withValues(alpha: 0.92)
+              : Colors.black.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.5),
+        ),
+        child: Icon(
+          LucideIcons.lightbulb,
+          size: 15,
+          color: active ? AppPalette.light.ink : Colors.white,
         ),
       ),
     );

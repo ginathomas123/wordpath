@@ -41,6 +41,7 @@ dependencies:
   shared_preferences: ^2.5.5
   lucide_icons_flutter: ^3.1.15
   home_widget: ^0.9.3
+  youtube_player_iframe: ^6.0.2
 
 dev_dependencies:
   flutter_test:
@@ -66,6 +67,8 @@ flutter:
 
   assets:
     - assets/covers/
+    # Placeholder people photos (Unsplash) for the BibleBites video section.
+    - assets/people/
     # Cormorant fonts bundled for google_fonts so the reader renders serif
     # instantly (no runtime download, no sans-serif flash, works offline).
     - assets/google_fonts/
