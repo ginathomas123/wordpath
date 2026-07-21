@@ -72,6 +72,9 @@ flutter:
     # Cormorant fonts bundled for google_fonts so the reader renders serif
     # instantly (no runtime download, no sans-serif flash, works offline).
     - assets/google_fonts/
+    # Strong's Hebrew/Greek dictionaries (public-domain) powering the
+    # tap-a-word interlinear popover. Bundled so look-ups are instant/offline.
+    - assets/lexicon/
 
   fonts:
     - family: Newsreader

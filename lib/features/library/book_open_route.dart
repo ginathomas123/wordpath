@@ -7,7 +7,7 @@ import '../../app/fonts.dart';
 import '../../app/theme.dart';
 import '../../app/widgets/app_icon_button.dart';
 import '../../data/bible_data.dart';
-import '../reader/reader_launch.dart';
+import '../study/study_circle_screen.dart';
 import '../study/study_screen.dart';
 import 'widgets/book_spine.dart';
 
@@ -315,25 +315,30 @@ class _InsidePage extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Row(
+                    Column(
                       children: [
                         _PageButton(
-                          label: 'Read',
+                          label: 'Study alone',
                           filled: true,
-                          // Replace the opened-book overlay so backing out of
-                          // the reader returns to the shelf, not the book.
-                          onTap: () =>
-                              openReader(context, bookTitle: book.title, replace: true),
-                        ),
-                        const SizedBox(width: 10),
-                        _PageButton(
-                          label: 'Study',
-                          filled: false,
+                          fullWidth: true,
                           // Replace the opened-book overlay so backing out of
                           // the Study screen returns to the shelf, not the book.
                           onTap: () => Navigator.of(context).pushReplacement(
                             MaterialPageRoute<void>(
                               builder: (_) => StudyScreen(book: book),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _PageButton(
+                          label: 'Study with friends',
+                          filled: false,
+                          fullWidth: true,
+                          // Replace the opened-book overlay so backing out of
+                          // the circle returns to the shelf, not the book.
+                          onTap: () => Navigator.of(context).pushReplacement(
+                            MaterialPageRoute<void>(
+                              builder: (_) => StudyCircleScreen(book: book),
                             ),
                           ),
                         ),
@@ -355,15 +360,17 @@ class _PageButton extends StatelessWidget {
     required this.label,
     required this.filled,
     required this.onTap,
+    this.fullWidth = false,
   });
 
   final String label;
   final bool filled;
   final VoidCallback onTap;
+  final bool fullWidth;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    final button = Material(
       color: filled ? AppPalette.light.ink : Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(22),
@@ -375,9 +382,10 @@ class _PageButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
           child: Text(
             label,
+            textAlign: TextAlign.center,
             style: AppFonts.sans(
               color: filled ? AppPalette.light.paper : AppPalette.light.ink,
               fontSize: 13,
@@ -387,5 +395,7 @@ class _PageButton extends StatelessWidget {
         ),
       ),
     );
+    if (!fullWidth) return button;
+    return SizedBox(width: double.infinity, child: button);
   }
 }

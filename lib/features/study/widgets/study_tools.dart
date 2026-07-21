@@ -50,32 +50,35 @@ class MasteryMeter extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Mastery',
-            style: AppFonts.sans(
-              color: palette.inkSoft,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: palette.isDark ? palette.paperDim : Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: palette.isDark
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
             ),
-          ),
-          const SizedBox(height: 10),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-              _MeterCell(
-                onTap: mastered ? onCapstone : null,
-                child: _ProgressItem(value: overall, accent: accent, mastered: mastered),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _MeterCell(
+                    onTap: mastered ? onCapstone : null,
+                    child: _ProgressItem(value: overall, accent: accent, mastered: mastered),
+                  ),
+                  _MeterCell(child: _TrackItem(icon: LucideIcons.bookOpen, label: 'Read', frac: readFrac, accent: accent)),
+                  _MeterCell(child: _TrackItem(icon: LucideIcons.bookMarked, label: 'Learn', frac: understandFrac, accent: accent)),
+                  _MeterCell(child: _TrackItem(icon: LucideIcons.brain, label: 'Memorize', frac: memorizeFrac, accent: accent)),
+                  _MeterCell(child: _TrackItem(icon: LucideIcons.sprout, label: 'Reflect', frac: applyFrac, accent: accent)),
+                ],
               ),
-              const SizedBox(width: 8),
-              _MeterCell(child: _TrackItem(icon: LucideIcons.bookOpen, label: 'Read', frac: readFrac, accent: accent)),
-              const SizedBox(width: 8),
-              _MeterCell(child: _TrackItem(icon: LucideIcons.bookMarked, label: 'Learn', frac: understandFrac, accent: accent)),
-              const SizedBox(width: 8),
-              _MeterCell(child: _TrackItem(icon: LucideIcons.brain, label: 'Memorize', frac: memorizeFrac, accent: accent)),
-              const SizedBox(width: 8),
-              _MeterCell(child: _TrackItem(icon: LucideIcons.sprout, label: 'Reflect', frac: applyFrac, accent: accent)),
-              ],
             ),
           ),
         ],
@@ -84,7 +87,8 @@ class MasteryMeter extends StatelessWidget {
   }
 }
 
-/// One outlined cell in the mastery row, holding a single track item.
+/// One cell in the mastery row, holding a single track item. No stroke — the
+/// items sit together on the single white mastery card.
 class _MeterCell extends StatelessWidget {
   const _MeterCell({required this.child, this.onTap});
   final Widget child;
@@ -92,20 +96,12 @@ class _MeterCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: Container(
+        child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: palette.inkFaint.withValues(alpha: 0.35),
-              width: 1,
-            ),
-          ),
           child: child,
         ),
       ),
@@ -145,7 +141,7 @@ class _ProgressItem extends StatelessWidget {
                       '${(value * 100).round()}%',
                       style: AppFonts.sans(
                         color: palette.ink,
-                        fontSize: 10.5,
+                        fontSize: 5.25,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -154,7 +150,7 @@ class _ProgressItem extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Progress',
+          'Mastery',
           style: AppFonts.sans(
             color: palette.inkSoft,
             fontSize: 10,
@@ -475,7 +471,6 @@ class _KeyVerseCardState extends State<KeyVerseCard> {
       decoration: BoxDecoration(
         color: palette.paperDim.withValues(alpha: palette.isDark ? 0.5 : 0.55),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: widget.accent.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1091,160 +1086,188 @@ class _BitePlayer extends StatefulWidget {
 class _BitePlayerState extends State<_BitePlayer> {
   late final PageController _controller;
   late int _current;
+  // Index of the page whose live video is mounted. Null means every page shows
+  // its poster, which keeps the vertical swipe reliable (an Android web view
+  // captures touches natively and would otherwise block the PageView).
+  int? _playing;
+  late final List<YoutubePlayerController?> _players;
 
   @override
   void initState() {
     super.initState();
     _current = widget.initialIndex;
     _controller = PageController(initialPage: widget.initialIndex);
+    _players = [
+      for (final bite in widget.bites)
+        if (bite.youtubeId case final id?)
+          YoutubePlayerController.fromVideoId(
+            videoId: id,
+            autoPlay: true,
+            params: const YoutubePlayerParams(
+              showControls: false,
+              showFullscreenButton: false,
+              strictRelatedVideos: true,
+              loop: true,
+            ),
+          )
+        else
+          null,
+    ];
   }
 
   @override
   void dispose() {
+    for (final p in _players) {
+      p?.close();
+    }
     _controller.dispose();
     super.dispose();
   }
 
+  void _onPageChanged(int i) {
+    if (i == _current) return;
+    // Returning to posters restores swiping between videos.
+    final playing = _playing;
+    if (playing != null) _players[playing]?.pauseVideo();
+    setState(() {
+      _current = i;
+      _playing = null;
+    });
+  }
+
+  void _play(int i) {
+    setState(() => _playing = i);
+    _players[i]?.playVideo();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bite = widget.bites[_current];
     return Scaffold(
       backgroundColor: Colors.black,
-      // Vertical swipe moves to the next card, TikTok-style.
-      body: PageView.builder(
-        controller: _controller,
-        scrollDirection: Axis.vertical,
-        itemCount: widget.bites.length,
-        onPageChanged: (i) => setState(() => _current = i),
-        itemBuilder: (context, i) => _BitePage(
-          bite: widget.bites[i],
-          isActive: i == _current,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top bar (outside the video texture) so the close button is always
+            // visible and tappable, whatever the web view does underneath.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).maybePop(),
+                  behavior: HitTestBehavior.opaque,
+                  child: const _CloseBadge(),
+                ),
+              ),
+            ),
+            // Posters swipe TikTok-style; tap a poster to play its Short inline,
+            // tap again to return to the poster (and swipe on to the next one).
+            Expanded(
+              child: PageView.builder(
+                controller: _controller,
+                scrollDirection: Axis.vertical,
+                itemCount: widget.bites.length,
+                onPageChanged: _onPageChanged,
+                itemBuilder: (context, i) => _BitePage(
+                  bite: widget.bites[i],
+                  controller: _players[i],
+                  isPlaying: _playing == i,
+                  onPlay: _players[i] == null ? null : () => _play(i),
+                ),
+              ),
+            ),
+            // Bottom bar with the topic heading and share affordance.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Text(
+                      bite.title,
+                      style: AppFonts.sans(
+                        color: Colors.white,
+                        fontSize: 18,
+                        height: 1.3,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: () {},
+                    behavior: HitTestBehavior.opaque,
+                    child: const _RailIcon(icon: LucideIcons.share2, label: 'Share'),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _BitePage extends StatefulWidget {
-  const _BitePage({required this.bite, required this.isActive});
+class _BitePage extends StatelessWidget {
+  const _BitePage({
+    required this.bite,
+    required this.controller,
+    required this.isPlaying,
+    required this.onPlay,
+  });
   final BibleBite bite;
-  final bool isActive;
-
-  @override
-  State<_BitePage> createState() => _BitePageState();
-}
-
-class _BitePageState extends State<_BitePage> {
-  YoutubePlayerController? _yt;
-
-  @override
-  void initState() {
-    super.initState();
-    final id = widget.bite.youtubeId;
-    if (id != null) {
-      _yt = YoutubePlayerController.fromVideoId(
-        videoId: id,
-        autoPlay: widget.isActive,
-        params: const YoutubePlayerParams(
-          showControls: true,
-          showFullscreenButton: false,
-          strictRelatedVideos: true,
-        ),
-      );
-    }
-  }
-
-  @override
-  void didUpdateWidget(_BitePage old) {
-    super.didUpdateWidget(old);
-    // Play only the visible page; pause the neighbours the PageView keeps alive.
-    if (_yt != null && widget.isActive != old.isActive) {
-      if (widget.isActive) {
-        _yt!.playVideo();
-      } else {
-        _yt!.pauseVideo();
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _yt?.close();
-    super.dispose();
-  }
+  final YoutubePlayerController? controller;
+  final bool isPlaying;
+  final VoidCallback? onPlay;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (_yt != null)
-          // Real YouTube Short, centered and sized to fill the height.
-          LayoutBuilder(
-            builder: (context, c) {
-              final width = math.min(c.maxWidth, c.maxHeight * 9 / 16);
-              return Center(
-                child: SizedBox(
-                  width: width,
-                  child: YoutubePlayer(controller: _yt!, aspectRatio: 9 / 16),
-                ),
-              );
-            },
-          )
-        else ...[
-          Image.asset(widget.bite.image, fit: BoxFit.cover),
-          const Center(child: _PlayBadgeLarge()),
-        ],
-        // Scrims only over placeholder pages (they'd dim a real video).
-        if (_yt == null)
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x99000000), Color(0x00000000), Color(0x00000000), Color(0xB3000000)],
-                stops: [0.0, 0.25, 0.6, 1.0],
-              ),
-            ),
-          ),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: GestureDetector(
-                    onTap: () => Navigator.of(context).maybePop(),
-                    behavior: HitTestBehavior.opaque,
-                    child: const _CloseBadge(),
-                  ),
-                ),
-                const Spacer(),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // Only the topic-related heading.
-                    Expanded(
-                      child: Text(
-                        widget.bite.title,
-                        style: AppFonts.sans(
-                          color: Colors.white,
-                          fontSize: 18,
-                          height: 1.3,
-                          fontWeight: FontWeight.w700,
-                          shadows: const [Shadow(color: Colors.black54, blurRadius: 8)],
-                        ),
+    // The poster shows by default, which lets the PageView own the vertical
+    // swipe (browse). Tapping a poster mounts the live Short in its place.
+    final showLive = isPlaying && controller != null;
+    return GestureDetector(
+      onTap: showLive ? null : onPlay,
+      behavior: HitTestBehavior.opaque,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (showLive)
+            LayoutBuilder(
+              builder: (context, c) {
+                final width = math.min(c.maxWidth, c.maxHeight * 9 / 16);
+                return Center(
+                  child: SizedBox(
+                    width: width,
+                    child: IgnorePointer(
+                      child: YoutubePlayer(
+                        controller: controller!,
+                        aspectRatio: 9 / 16,
+                        enableFullScreenOnVerticalDrag: false,
+                        autoFullScreen: false,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    const _RailIcon(icon: LucideIcons.share2, label: 'Share'),
-                  ],
+                  ),
+                );
+              },
+            )
+          else ...[
+            Image.asset(bite.image, fit: BoxFit.cover),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x66000000), Color(0x00000000), Color(0x00000000), Color(0x66000000)],
+                  stops: [0.0, 0.25, 0.6, 1.0],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ],
+            const Center(child: _PlayBadgeLarge()),
+          ],
+        ],
+      ),
     );
   }
 }

@@ -17,6 +17,27 @@ import '../data/section_data.dart';
 import '../theme/bible_theme.dart';
 import '../widgets/book_tab_rail.dart';
 import '../widgets/book_list_panel.dart';
+import '../widgets/word_interlinear_sheet.dart';
+
+/// Locates the word at a character [offset] within [text], returning its
+/// 0-based word ordinal and the raw word. Used to map a tapped character to a
+/// word for the reverse-interlinear popover.
+(int, String)? wordAtOffset(String text, int offset) {
+  final matches = RegExp(r"[A-Za-z][A-Za-z'\-]*").allMatches(text).toList();
+  if (matches.isEmpty) return null;
+  for (int i = 0; i < matches.length; i++) {
+    final m = matches[i];
+    if (offset >= m.start && offset <= m.end) return (i, m.group(0)!);
+  }
+  // Nearest word if the tap landed on punctuation/whitespace.
+  int best = 0, bestDist = 1 << 30;
+  for (int i = 0; i < matches.length; i++) {
+    final m = matches[i];
+    final d = offset < m.start ? m.start - offset : offset - m.end;
+    if (d < bestDist) { bestDist = d; best = i; }
+  }
+  return (best, matches[best].group(0)!);
+}
 
 /// Clean white reading surface.
 const _paper = Color(0xFFFFFFFF);
@@ -65,8 +86,6 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
 
   // bookmark ribbon — persisted, null = no bookmark set
   int? _bmkBookIdx, _bmkChap;
-  late final AnimationController _bmkCtrl;
-  double _bmkDrag = 0;
 
   // ── adjacent-chapter helpers ───────────────────────────────────────────────
 
@@ -101,11 +120,6 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
     _chapter = widget.initialChapter;
     _immersive = widget.initialImmersive;
     _pagCtrl = PageController(initialPage: 1);
-    _bmkCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-      reverseDuration: const Duration(milliseconds: 280),
-    );
     _load();
     _loadHighlights();
     _loadBookmark();
@@ -130,7 +144,6 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
   void dispose() {
     _readTimer?.cancel();
     _pagCtrl.dispose();
-    _bmkCtrl.dispose();
     super.dispose();
   }
 
@@ -155,34 +168,12 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
 
   void _toggleBookmark() {
     if (_onBookmarkedChapter) {
-      // Remove bookmark
-      _bmkCtrl.reverse().then((_) {
-        if (mounted) setState(() { _bmkBookIdx = null; _bmkChap = null; _bmkDrag = 0; });
-      });
+      setState(() { _bmkBookIdx = null; _bmkChap = null; });
       _saveBookmark(null, null);
     } else {
       // Set bookmark — persists until explicitly removed
-      setState(() { _bmkBookIdx = _bookIndex; _bmkChap = _chapter; _bmkDrag = 0; });
-      _bmkCtrl.forward(from: 0);
+      setState(() { _bmkBookIdx = _bookIndex; _bmkChap = _chapter; });
       _saveBookmark(_bookIndex, _chapter);
-    }
-  }
-
-  void _onBmkDragUpdate(DragUpdateDetails d) {
-    final next = _bmkDrag + d.delta.dy;
-    if (next <= 0) setState(() => _bmkDrag = next);
-  }
-
-  void _onBmkDragEnd(DragEndDetails d) {
-    if (_bmkDrag < -55.0 || d.velocity.pixelsPerSecond.dy < -500) {
-      // Drag-up = remove bookmark
-      _bmkCtrl.reverse().then((_) {
-        if (mounted) setState(() { _bmkBookIdx = null; _bmkChap = null; _bmkDrag = 0; });
-      });
-      _saveBookmark(null, null);
-    } else {
-      setState(() => _bmkDrag = 0);
-      _bmkCtrl.forward();
     }
   }
 
@@ -203,8 +194,6 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
     final c = prefs.getInt('bmk_chap');
     if (b != null && c != null && mounted) {
       setState(() { _bmkBookIdx = b; _bmkChap = c; });
-      // If we're already on the bookmarked chapter, show ribbon immediately
-      if (b == _bookIndex && c == _chapter) _bmkCtrl.value = 1.0;
     }
   }
 
@@ -302,7 +291,6 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _pagCtrl.jumpToPage(1);
-        if (_onBookmarkedChapter) _bmkCtrl.forward(from: 0);
       });
       _persist();
       _loadNeighbors();
@@ -318,7 +306,6 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _pagCtrl.jumpToPage(1);
-        if (_onBookmarkedChapter) _bmkCtrl.forward(from: 0);
       });
       _persist();
       _loadNeighbors();
@@ -447,15 +434,6 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
                                         setState(() => _immersive = !_immersive),
                                   ),
                                 ),
-                                // Bookmark ribbon — only visible on the bookmarked chapter
-                                if (_onBookmarkedChapter)
-                                  _BookmarkRibbon(
-                                    ctrl: _bmkCtrl,
-                                    pagCtrl: _pagCtrl,
-                                    drag: _bmkDrag,
-                                    onDragUpdate: _onBmkDragUpdate,
-                                    onDragEnd: _onBmkDragEnd,
-                                  ),
                               ],
                             ),
                           ),
@@ -627,16 +605,11 @@ class _ScriptureContent extends StatelessWidget {
                   letterSpacing: 3, color: BibleColors.inkDark,
                 ),
               ),
-              const SizedBox(width: 10),
-              GestureDetector(
+              const SizedBox(width: 12),
+              _BookmarkControl(
+                active: bookmarkActive,
                 onTap: onBookmarkTap,
-                child: Icon(
-                  bookmarkActive ? LucideIcons.bookmarkCheck : LucideIcons.bookmark,
-                  size: 18,
-                  color: bookmarkActive
-                      ? const Color(0xFF7B2030)
-                      : BibleColors.inkLight.withValues(alpha: 0.7),
-                ),
+                color: BibleColors.tabColors[book.abbrev] ?? const Color(0xFF7A4828),
               ),
             ],
           ),
@@ -846,6 +819,21 @@ class _DropCapVerseState extends State<_DropCapVerse> {
   void _onLongPressCancel() =>
       setState(() { _active = false; _start = null; _end = null; });
 
+  void _onTapUp(TapUpDetails d) {
+    final c = _charAt(d.localPosition);
+    if (c == null) return;
+    final w = wordAtOffset(widget.verse.text, c);
+    if (w == null) return;
+    showWordInterlinear(
+      context,
+      bookIndex: widget.bookIndex,
+      chapter: widget.chapter,
+      verse: widget.verse.number,
+      wordIndex: w.$1,
+      word: w.$2,
+    );
+  }
+
   List<HighlightEntry> _shift(List<HighlightEntry> list) => list
       .map((h) => HighlightEntry(
             bookIndex: h.bookIndex,
@@ -890,6 +878,7 @@ class _DropCapVerseState extends State<_DropCapVerse> {
           child: Padding(
             padding: const EdgeInsets.only(top: 6),
             child: GestureDetector(
+              onTapUp: _onTapUp,
               onLongPressStart: _onLongPressStart,
               onLongPressMoveUpdate: _onLongPressMoveUpdate,
               onLongPressEnd: _onLongPressEnd,
@@ -1158,6 +1147,22 @@ class _VerseRowState extends State<_VerseRow> {
   void _onLongPressCancel() =>
       setState(() { _active = false; _start = null; _end = null; });
 
+  // Single tap → reverse-interlinear popover for the tapped word.
+  void _onTapUp(TapUpDetails d) {
+    final c = _charAt(d.localPosition);
+    if (c == null) return;
+    final w = wordAtOffset(widget.verse.text, c);
+    if (w == null) return;
+    showWordInterlinear(
+      context,
+      bookIndex: widget.bookIndex,
+      chapter: widget.chapter,
+      verse: widget.verse.number,
+      wordIndex: w.$1,
+      word: w.$2,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final allHighlights = (_active && _start != null && _end != null)
@@ -1174,6 +1179,7 @@ class _VerseRowState extends State<_VerseRow> {
         : widget.storedHighlights;
 
     return GestureDetector(
+      onTapUp: _onTapUp,
       onLongPressStart: _onLongPressStart,
       onLongPressMoveUpdate: _onLongPressMoveUpdate,
       onLongPressEnd: _onLongPressEnd,
@@ -1206,71 +1212,117 @@ class _VerseRowState extends State<_VerseRow> {
 
 // ─── Bookmark Ribbon ─────────────────────────────────────────────────────────
 
-class _BookmarkRibbon extends StatelessWidget {
-  final AnimationController ctrl;
-  final PageController pagCtrl;
-  final double drag;
-  final void Function(DragUpdateDetails) onDragUpdate;
-  final void Function(DragEndDetails) onDragEnd;
+/// Inline bookmark control beside the chapter title.
+///
+/// Empty state = a bookmark outline icon. Tapping it drops the burgundy ribbon
+/// pennant in from just above (a short ease-in fall) and settles it in place.
+/// Tapping again removes the bookmark, returning to the icon.
+class _BookmarkControl extends StatefulWidget {
+  final bool active;
+  final VoidCallback? onTap;
+  final Color color; // matches the book's tab color
+  const _BookmarkControl({required this.active, this.onTap, required this.color});
 
-  const _BookmarkRibbon({
-    required this.ctrl,
-    required this.pagCtrl,
-    required this.drag,
-    required this.onDragUpdate,
-    required this.onDragEnd,
-  });
+  @override
+  State<_BookmarkControl> createState() => _BookmarkControlState();
+}
 
-  static const _w = 46.0;
-  static const _h = 90.0; // half height
-  static const _left = 30.0;
+class _BookmarkControlState extends State<_BookmarkControl>
+    with SingleTickerProviderStateMixin {
+  static const _w = 24.0;
+  static const _h = 40.0;
+  static const _drop = 24.0; // how far above it starts — kept low, per spec
+
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 440),
+    );
+    _ctrl.value = widget.active ? 1.0 : 0.0;
+  }
+
+  @override
+  void didUpdateWidget(covariant _BookmarkControl old) {
+    super.didUpdateWidget(old);
+    if (!old.active && widget.active) {
+      _ctrl.forward(from: 0); // dropped in
+    } else if (old.active && !widget.active) {
+      _ctrl.value = 0; // removed — snap back to the icon
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([ctrl, pagCtrl]),
-      builder: (_, __) {
-        final dropAnim = CurvedAnimation(
-          parent: ctrl,
-          curve: Curves.elasticOut,
-          reverseCurve: Curves.easeIn,
-        ).value;
-        final top = -_h * (1.0 - dropAnim) + drag;
-
-        // Fade out as user swipes away from this page (page 1 = center)
-        final pageOffset = pagCtrl.hasClients ? ((pagCtrl.page ?? 1.0) - 1.0).abs() : 0.0;
-        final opacity = (1.0 - pageOffset * 3).clamp(0.0, 1.0);
-
-        return Positioned(
-          top: top,
-          left: _left,
-          width: _w,
-          height: _h,
-          child: Opacity(
-            opacity: opacity,
-            child: GestureDetector(
-              onVerticalDragUpdate: onDragUpdate,
-              onVerticalDragEnd: onDragEnd,
-              child: CustomPaint(
-                size: const Size(_w, _h),
-                painter: _BookmarkPainter(),
+    return GestureDetector(
+      onTap: widget.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: _w,
+        height: _h,
+        child: widget.active
+            ? AnimatedBuilder(
+                animation: _ctrl,
+                builder: (_, __) {
+                  final t = Curves.easeIn.transform(_ctrl.value);
+                  final dy = -_drop * (1 - t);
+                  final opacity = (_ctrl.value * 2.6).clamp(0.0, 1.0);
+                  return Transform.translate(
+                    offset: Offset(0, dy),
+                    child: Opacity(
+                      opacity: opacity,
+                      child: CustomPaint(
+                        size: const Size(_w, _h),
+                        painter: _BookmarkPainter(widget.color),
+                      ),
+                    ),
+                  );
+                },
+              )
+            : Center(
+                child: Icon(
+                  LucideIcons.bookmark,
+                  size: 20,
+                  color: BibleColors.inkLight.withValues(alpha: 0.75),
+                ),
               ),
-            ),
-          ),
-        );
-      },
+      ),
     );
   }
 }
 
 class _BookmarkPainter extends CustomPainter {
-  const _BookmarkPainter();
+  final Color color;
+  const _BookmarkPainter(this.color);
+
+  static Color _darken(Color c, double amt) =>
+      Color.alphaBlend(Colors.black.withValues(alpha: amt), c);
+  static Color _lighten(Color c, double amt) =>
+      Color.alphaBlend(Colors.white.withValues(alpha: amt), c);
 
   @override
   void paint(Canvas canvas, Size size) {
     final W = size.width;
     final H = size.height;
-    const notch = 24.0; // depth of the V-cut at the bottom
+    final notch = H * 0.26; // depth of the V-cut at the bottom
+
+    // Ribbon shading derived from the book's tab color, so each bookmark
+    // matches its book. Slightly lit left edge → darker core → base at right.
+    final grad = LinearGradient(
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+      colors: [_lighten(color, 0.10), _darken(color, 0.26), color],
+      stops: const [0.0, 0.45, 1.0],
+    );
 
     // ── Shape ────────────────────────────────────────────────────────────────
     final path = Path()
@@ -1281,16 +1333,10 @@ class _BookmarkPainter extends CustomPainter {
       ..lineTo(0, H - notch)
       ..close();
 
-    // ── Main fill: rich burgundy gradient ─────────────────────────────────────
+    // ── Main fill: gradient from the book color ───────────────────────────────
     canvas.drawPath(
       path,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [Color(0xFF9B2335), Color(0xFF6B1520), Color(0xFF8B2030)],
-          stops: [0.0, 0.45, 1.0],
-        ).createShader(Rect.fromLTWH(0, 0, W, H)),
+      Paint()..shader = grad.createShader(Rect.fromLTWH(0, 0, W, H)),
     );
 
     // ── Subtle vertical texture lines (fabric/ribbon grain) ───────────────────
@@ -1332,13 +1378,7 @@ class _BookmarkPainter extends CustomPainter {
     // Redraw foreground over shadow (shadow drawn first = wrong order, fix below)
     canvas.drawPath(
       path,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [Color(0xFF9B2335), Color(0xFF6B1520), Color(0xFF8B2030)],
-          stops: [0.0, 0.45, 1.0],
-        ).createShader(Rect.fromLTWH(0, 0, W, H)),
+      Paint()..shader = grad.createShader(Rect.fromLTWH(0, 0, W, H)),
     );
 
     // ── Thin top fold line (hint of thickness at the top edge) ────────────────
@@ -1361,7 +1401,7 @@ class _BookmarkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_BookmarkPainter old) => false;
+  bool shouldRepaint(_BookmarkPainter old) => old.color != color;
 }
 
 // ─── Page Curl ───────────────────────────────────────────────────────────────
