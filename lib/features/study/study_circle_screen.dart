@@ -48,16 +48,20 @@ class _StudyCircleScreenState extends State<StudyCircleScreen> {
     });
   }
 
-  Future<void> _react(String postId, String emoji) async {
-    await CircleStore.toggleReaction(_studyId, postId, emoji);
+  Future<void> _like(String postId) async {
+    await CircleStore.toggleReaction(_studyId, postId, 'like');
     setState(() {
-      if (_reactions[postId] == emoji) {
+      if (_reactions[postId] == 'like') {
         _reactions.remove(postId);
       } else {
-        _reactions[postId] = emoji;
+        _reactions[postId] = 'like';
       }
     });
   }
+
+  bool _liked(String postId) => _reactions[postId] == 'like';
+
+  int _likeCount(CirclePost post) => post.likes + (_liked(post.id) ? 1 : 0);
 
   Future<void> _answerQuestion(int index) async {
     final text = await _compose(
@@ -76,9 +80,9 @@ class _StudyCircleScreenState extends State<StudyCircleScreen> {
     });
   }
 
-  Future<void> _shareIdea() async {
+  Future<void> _shareThought() async {
     final text = await _compose(
-      title: 'Share an idea',
+      title: 'Share your thoughts',
       hint: 'A verse, a connection, a question for the group…',
     );
     if (text == null || text.trim().isEmpty) return;
@@ -176,11 +180,6 @@ class _StudyCircleScreenState extends State<StudyCircleScreen> {
     );
   }
 
-  int _count(CirclePost post, String emoji) {
-    final base = post.reactions[emoji] ?? 0;
-    return base + (_reactions[post.id] == emoji ? 1 : 0);
-  }
-
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -192,6 +191,7 @@ class _StudyCircleScreenState extends State<StudyCircleScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _header(palette),
+            const SizedBox(height: 24),
             _membersStrip(palette),
             const SizedBox(height: 6),
             Expanded(
@@ -211,27 +211,13 @@ class _StudyCircleScreenState extends State<StudyCircleScreen> {
                             yourAnswer: _answers[i],
                             accent: widget.book.color,
                             palette: palette,
-                            count: _count,
-                            userReaction: (id) => _reactions[id],
-                            onReact: _react,
-                            onAnswer: () => _answerQuestion(i),
+                            liked: _liked,
+                            likeCount: _likeCount,
+                            onLike: _like,
+                            onReply: () => _answerQuestion(i),
                           ),
                           const SizedBox(height: 16),
                         ],
-                        const SizedBox(height: 8),
-                        _sectionLabel('Ideas & reflections', palette),
-                        const SizedBox(height: 14),
-                        for (final idea in _circle.seededIdeas)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _PostCard(
-                              post: idea,
-                              palette: palette,
-                              count: _count,
-                              userReaction: _reactions[idea.id],
-                              onReact: (e) => _react(idea.id, e),
-                            ),
-                          ),
                         for (final idea in _ideas)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 12),
@@ -242,19 +228,20 @@ class _StudyCircleScreenState extends State<StudyCircleScreen> {
                                 color: widget.book.color,
                                 text: idea,
                                 byYou: true,
+                                avatar: kYouAvatar,
                               ),
                               palette: palette,
-                              count: _count,
-                              userReaction: null,
-                              onReact: null,
+                              liked: false,
+                              likeCount: 0,
+                              onLike: null,
                             ),
                           ),
                         const SizedBox(height: 4),
                         _AddButton(
-                          label: 'Share an idea',
+                          label: 'Share your thoughts',
                           accent: widget.book.color,
                           palette: palette,
-                          onTap: _shareIdea,
+                          onTap: _shareThought,
                         ),
                       ],
                     ),
@@ -364,22 +351,12 @@ class _MemberAvatar extends StatelessWidget {
                     valueColor: AlwaysStoppedAnimation(member.color),
                   ),
                 ),
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: member.color.withValues(alpha: 0.16),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    member.initials,
-                    style: AppFonts.sans(
-                      color: member.color,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+                _Avatar(
+                  size: 42,
+                  avatar: member.avatar,
+                  fallbackText: member.initials,
+                  color: member.color,
+                  fontSize: 15,
                 ),
               ],
             ),
@@ -396,6 +373,60 @@ class _MemberAvatar extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A circular avatar: shows a face photo when [avatar] is set, otherwise a
+/// tinted circle with the member's initials.
+class _Avatar extends StatelessWidget {
+  const _Avatar({
+    required this.size,
+    required this.avatar,
+    required this.fallbackText,
+    required this.color,
+    required this.fontSize,
+  });
+
+  final double size;
+  final String? avatar;
+  final String fallbackText;
+  final Color color;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    if (avatar != null) {
+      return ClipOval(
+        child: Image.asset(
+          avatar!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _initialsCircle(),
+        ),
+      );
+    }
+    return _initialsCircle();
+  }
+
+  Widget _initialsCircle() {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withValues(alpha: 0.16),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        fallbackText,
+        style: AppFonts.sans(
+          color: color,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -455,10 +486,10 @@ class _QuestionCard extends StatelessWidget {
     required this.yourAnswer,
     required this.accent,
     required this.palette,
-    required this.count,
-    required this.userReaction,
-    required this.onReact,
-    required this.onAnswer,
+    required this.liked,
+    required this.likeCount,
+    required this.onLike,
+    required this.onReply,
   });
 
   final int index;
@@ -467,10 +498,10 @@ class _QuestionCard extends StatelessWidget {
   final String? yourAnswer;
   final Color accent;
   final AppPalette palette;
-  final int Function(CirclePost, String) count;
-  final String? Function(String) userReaction;
-  final void Function(String postId, String emoji) onReact;
-  final VoidCallback onAnswer;
+  final bool Function(String) liked;
+  final int Function(CirclePost) likeCount;
+  final void Function(String postId) onLike;
+  final VoidCallback onReply;
 
   @override
   Widget build(BuildContext context) {
@@ -531,9 +562,9 @@ class _QuestionCard extends StatelessWidget {
             _PostBody(
               post: a,
               palette: palette,
-              count: count,
-              userReaction: userReaction(a.id),
-              onReact: (e) => onReact(a.id, e),
+              liked: liked(a.id),
+              likeCount: likeCount(a),
+              onLike: () => onLike(a.id),
             ),
             const SizedBox(height: 12),
           ],
@@ -545,28 +576,26 @@ class _QuestionCard extends StatelessWidget {
                 color: accent,
                 text: yourAnswer!,
                 byYou: true,
+                avatar: kYouAvatar,
               ),
               palette: palette,
-              count: count,
-              userReaction: null,
-              onReact: null,
+              liked: false,
+              likeCount: 0,
+              onLike: null,
             ),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: onAnswer,
+              onPressed: onReply,
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 foregroundColor: accent,
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              icon: Icon(
-                yourAnswer == null ? LucideIcons.pencil : LucideIcons.pencilLine,
-                size: 15,
-              ),
+              icon: const Icon(LucideIcons.reply, size: 15),
               label: Text(
-                yourAnswer == null ? 'Share your answer' : 'Edit your answer',
+                yourAnswer == null ? 'Reply' : 'Edit reply',
                 style: AppFonts.sans(
                   color: accent,
                   fontSize: 13,
@@ -581,21 +610,21 @@ class _QuestionCard extends StatelessWidget {
   }
 }
 
-/// A standalone card (used for the ideas wall).
+/// A standalone card (used for the thoughts you share).
 class _PostCard extends StatelessWidget {
   const _PostCard({
     required this.post,
     required this.palette,
-    required this.count,
-    required this.userReaction,
-    required this.onReact,
+    required this.liked,
+    required this.likeCount,
+    required this.onLike,
   });
 
   final CirclePost post;
   final AppPalette palette;
-  final int Function(CirclePost, String) count;
-  final String? userReaction;
-  final void Function(String emoji)? onReact;
+  final bool liked;
+  final int likeCount;
+  final VoidCallback? onLike;
 
   @override
   Widget build(BuildContext context) {
@@ -617,51 +646,41 @@ class _PostCard extends StatelessWidget {
       child: _PostBody(
         post: post,
         palette: palette,
-        count: count,
-        userReaction: userReaction,
-        onReact: onReact,
+        liked: liked,
+        likeCount: likeCount,
+        onLike: onLike,
       ),
     );
   }
 }
 
-/// The avatar + name + text + reactions layout shared by answers and ideas.
+/// The avatar + name + text + like layout shared by answers and thoughts.
 class _PostBody extends StatelessWidget {
   const _PostBody({
     required this.post,
     required this.palette,
-    required this.count,
-    required this.userReaction,
-    required this.onReact,
+    required this.liked,
+    required this.likeCount,
+    required this.onLike,
   });
 
   final CirclePost post;
   final AppPalette palette;
-  final int Function(CirclePost, String) count;
-  final String? userReaction;
-  final void Function(String emoji)? onReact;
+  final bool liked;
+  final int likeCount;
+  final VoidCallback? onLike;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: post.color.withValues(alpha: 0.16),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            initialsFor(post.author),
-            style: AppFonts.sans(
-              color: post.color,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
+        _Avatar(
+          size: 32,
+          avatar: post.avatar,
+          fallbackText: initialsFor(post.author),
+          color: post.color,
+          fontSize: 12,
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -685,14 +704,16 @@ class _PostBody extends StatelessWidget {
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 8),
-              _ReactionsRow(
-                post: post,
-                palette: palette,
-                count: count,
-                userReaction: userReaction,
-                onReact: onReact,
-              ),
+              // Own posts (no onLike) don't show a like control.
+              if (onLike != null) ...[
+                const SizedBox(height: 8),
+                _LikeButton(
+                  liked: liked,
+                  count: likeCount,
+                  palette: palette,
+                  onTap: onLike!,
+                ),
+              ],
             ],
           ),
         ),
@@ -701,92 +722,46 @@ class _PostBody extends StatelessWidget {
   }
 }
 
-class _ReactionsRow extends StatelessWidget {
-  const _ReactionsRow({
-    required this.post,
-    required this.palette,
+/// A single heart "like" control with a count.
+class _LikeButton extends StatelessWidget {
+  const _LikeButton({
+    required this.liked,
     required this.count,
-    required this.userReaction,
-    required this.onReact,
-  });
-
-  final CirclePost post;
-  final AppPalette palette;
-  final int Function(CirclePost, String) count;
-  final String? userReaction;
-  final void Function(String emoji)? onReact;
-
-  @override
-  Widget build(BuildContext context) {
-    // Own posts (no onReact) render nothing.
-    if (onReact == null) return const SizedBox.shrink();
-    return Wrap(
-      spacing: 6,
-      children: [
-        for (final emoji in kReactions)
-          _ReactionPill(
-            emoji: emoji,
-            count: count(post, emoji),
-            selected: userReaction == emoji,
-            accent: post.color,
-            palette: palette,
-            onTap: () => onReact!(emoji),
-          ),
-      ],
-    );
-  }
-}
-
-class _ReactionPill extends StatelessWidget {
-  const _ReactionPill({
-    required this.emoji,
-    required this.count,
-    required this.selected,
-    required this.accent,
     required this.palette,
     required this.onTap,
   });
 
-  final String emoji;
+  final bool liked;
   final int count;
-  final bool selected;
-  final Color accent;
   final AppPalette palette;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    const likeColor = Color(0xFFE0245E);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        decoration: BoxDecoration(
-          color: selected
-              ? accent.withValues(alpha: 0.16)
-              : palette.inkFaint.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(14),
-          border: selected
-              ? Border.all(color: accent.withValues(alpha: 0.5))
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 12)),
-            if (count > 0) ...[
-              const SizedBox(width: 4),
-              Text(
-                '$count',
-                style: AppFonts.sans(
-                  color: selected ? accent : palette.inkSoft,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            liked ? Icons.favorite : Icons.favorite_border,
+            size: 16,
+            color: liked ? likeColor : palette.inkFaint,
+          ),
+          if (count > 0) ...[
+            const SizedBox(width: 5),
+            Text(
+              '$count',
+              style: AppFonts.sans(
+                color: liked ? likeColor : palette.inkSoft,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
               ),
-            ],
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

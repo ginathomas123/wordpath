@@ -9,7 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// [SharedPreferences]; friends' contributions are seeded. Swap [CircleStore]
 /// for a real backend (e.g. Firestore) later without touching the UI.
 
-const List<String> kReactions = ['🙏', '❤️', '💡'];
+/// Your own avatar, reused for the thoughts you post.
+const String kYouAvatar = 'assets/people/avatar_you.jpg';
 
 /// Two-letter initials from a display name ("Sarah K." → "SK").
 String initialsFor(String name) {
@@ -24,11 +25,13 @@ class CircleMember {
   final Color color;
   final double progress; // 0..1 mastery
   final bool isYou;
+  final String? avatar; // asset path to a face photo
   const CircleMember({
     required this.name,
     required this.color,
     required this.progress,
     this.isYou = false,
+    this.avatar,
   });
 
   String get initials => initialsFor(name);
@@ -40,7 +43,8 @@ class CirclePost {
   final Color color;
   final String text;
   final bool byYou;
-  final Map<String, int> reactions; // seeded base counts
+  final String? avatar; // asset path to author's face photo
+  final int likes; // seeded base like count
 
   const CirclePost({
     required this.id,
@@ -48,7 +52,8 @@ class CirclePost {
     required this.color,
     required this.text,
     this.byYou = false,
-    this.reactions = const {},
+    this.avatar,
+    this.likes = 0,
   });
 }
 
@@ -57,13 +62,11 @@ class StudyCircle {
   final List<CircleMember> members;
   final List<String> questions;
   final List<List<CirclePost>> seededAnswers; // parallel to [questions]
-  final List<CirclePost> seededIdeas;
 
   const StudyCircle({
     required this.members,
     required this.questions,
     required this.seededAnswers,
-    required this.seededIdeas,
   });
 
   /// Seeds a believable circle. [accent] tints "You" so it matches the study.
@@ -75,11 +78,28 @@ class StudyCircle {
 
     return StudyCircle(
       members: [
-        CircleMember(name: 'You', color: accent, progress: 0.6, isYou: true),
-        const CircleMember(name: 'Sarah K.', color: sarah, progress: 0.85),
-        const CircleMember(name: 'Marcus T.', color: marcus, progress: 0.4),
-        const CircleMember(name: 'Grace L.', color: grace, progress: 1.0),
-        const CircleMember(name: 'David R.', color: david, progress: 0.55),
+        CircleMember(
+            name: 'You', color: accent, progress: 0.6, isYou: true, avatar: kYouAvatar),
+        const CircleMember(
+            name: 'Sarah K.',
+            color: sarah,
+            progress: 0.85,
+            avatar: 'assets/people/avatar_sarah.jpg'),
+        const CircleMember(
+            name: 'Marcus T.',
+            color: marcus,
+            progress: 0.4,
+            avatar: 'assets/people/avatar_marcus.jpg'),
+        const CircleMember(
+            name: 'Grace L.',
+            color: grace,
+            progress: 1.0,
+            avatar: 'assets/people/avatar_grace.jpg'),
+        const CircleMember(
+            name: 'David R.',
+            color: david,
+            progress: 0.55,
+            avatar: 'assets/people/avatar_david.jpg'),
       ],
       questions: const [
         'What stood out to you most in this study?',
@@ -92,16 +112,18 @@ class StudyCircle {
             id: 'q0a0',
             author: 'Grace L.',
             color: grace,
+            avatar: 'assets/people/avatar_grace.jpg',
             text:
                 'How patient God is — the same promise repeated even when the people keep forgetting. It made me exhale.',
-            reactions: {'🙏': 3, '❤️': 2},
+            likes: 3,
           ),
           CirclePost(
             id: 'q0a1',
             author: 'Marcus T.',
             color: marcus,
+            avatar: 'assets/people/avatar_marcus.jpg',
             text: 'The detail that deliverance came before the law, not after. Grace first.',
-            reactions: {'💡': 4},
+            likes: 2,
           ),
         ],
         [
@@ -109,9 +131,10 @@ class StudyCircle {
             id: 'q1a0',
             author: 'Sarah K.',
             color: sarah,
+            avatar: 'assets/people/avatar_sarah.jpg',
             text:
                 'Honestly in my job stress. Reading this reminded me He goes ahead of me into the hard rooms.',
-            reactions: {'🙏': 2, '❤️': 3},
+            likes: 4,
           ),
         ],
         [
@@ -119,27 +142,11 @@ class StudyCircle {
             id: 'q2a0',
             author: 'David R.',
             color: david,
+            avatar: 'assets/people/avatar_david.jpg',
             text: 'Going to actually pause and pray before reacting this week. One breath first.',
-            reactions: {'🙏': 1},
+            likes: 1,
           ),
         ],
-      ],
-      seededIdeas: const [
-        CirclePost(
-          id: 'idea0',
-          author: 'Sarah K.',
-          color: sarah,
-          text:
-              'Idea: what if we each pick one verse from this study to memorize and check in on Friday?',
-          reactions: {'💡': 3, '❤️': 1},
-        ),
-        CirclePost(
-          id: 'idea1',
-          author: 'Grace L.',
-          color: grace,
-          text: 'This pairs so well with Psalm 77 if anyone wants to go deeper on remembering God\u2019s works.',
-          reactions: {'❤️': 2},
-        ),
       ],
     );
   }
