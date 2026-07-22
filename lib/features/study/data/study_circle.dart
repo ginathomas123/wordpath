@@ -150,7 +150,50 @@ class StudyCircle {
       ],
     );
   }
+
+  /// Deterministically seeds a few friends' comments for a per-task discussion
+  /// thread (keyed by [threadId]) so each passage feels lived-in without a
+  /// backend. Returns 0–2 posts; the same thread always yields the same seed.
+  List<CirclePost> seedThreadPosts(String threadId) {
+    var h = 0;
+    for (final c in threadId.codeUnits) {
+      h = (h * 31 + c) & 0x7fffffff;
+    }
+    final friends = members.where((m) => !m.isYou).toList();
+    if (friends.isEmpty) return const [];
+    // ~20% of threads stay empty, ~40% get one comment, ~40% get two.
+    final roll = h % 5;
+    final count = roll == 0 ? 0 : (roll <= 2 ? 1 : 2);
+    final posts = <CirclePost>[];
+    for (var i = 0; i < count; i++) {
+      final hh = (h + i * 97) & 0x7fffffff;
+      final m = friends[(hh + i) % friends.length];
+      final msg = _threadSeedPool[(hh ~/ 7) % _threadSeedPool.length];
+      posts.add(CirclePost(
+        id: '$threadId#s$i',
+        author: m.name,
+        color: m.color,
+        avatar: m.avatar,
+        text: msg,
+        likes: (hh ~/ 13) % 4,
+      ));
+    }
+    return posts;
+  }
 }
+
+/// A small pool of contextual, passage-agnostic comments used to seed the
+/// per-task discussion threads.
+const List<String> _threadSeedPool = [
+  'This is the part I keep coming back to.',
+  'Reading it slowly completely changed how I heard it.',
+  'Anyone else wrestle with this one? It sat heavy with me.',
+  'The wording here is so tender — I had to pause.',
+  'Needed this exact reminder this week.',
+  'I never noticed this detail until now.',
+  'Sitting with this one a little longer today.',
+  'This gave me so much hope honestly.',
+];
 
 /// Persists the current user's contributions per study.
 class CircleStore {
@@ -159,6 +202,7 @@ class CircleStore {
   static String _answersKey(String s) => 'circle_answers_$s';
   static String _ideasKey(String s) => 'circle_ideas_$s';
   static String _reactionsKey(String s) => 'circle_reactions_$s';
+  static String _threadsKey(String s) => 'circle_threads_$s';
 
   static Future<Map<int, String>> loadAnswers(String studyId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -195,6 +239,26 @@ class CircleStore {
     final current = await loadIdeas(studyId);
     current.add(text.trim());
     await prefs.setString(_ideasKey(studyId), jsonEncode(current));
+  }
+
+  /// Your replies on each per-task thread, keyed by threadId.
+  static Future<Map<String, List<String>>> loadThreads(String studyId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_threadsKey(studyId));
+    if (raw == null) return {};
+    final map = jsonDecode(raw) as Map<String, dynamic>;
+    return map.map((k, v) => MapEntry(k, (v as List).cast<String>()));
+  }
+
+  static Future<void> addThreadReply(
+      String studyId, String threadId, String text) async {
+    if (text.trim().isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final current = await loadThreads(studyId);
+    final list = current[threadId] ?? <String>[];
+    list.add(text.trim());
+    current[threadId] = list;
+    await prefs.setString(_threadsKey(studyId), jsonEncode(current));
   }
 
   static Future<Map<String, String>> loadReactions(String studyId) async {

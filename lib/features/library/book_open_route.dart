@@ -7,7 +7,7 @@ import '../../app/fonts.dart';
 import '../../app/theme.dart';
 import '../../app/widgets/app_icon_button.dart';
 import '../../data/bible_data.dart';
-import '../study/study_circle_screen.dart';
+import '../study/data/study_circle.dart';
 import '../study/study_screen.dart';
 import 'widgets/book_spine.dart';
 
@@ -334,11 +334,15 @@ class _InsidePage extends StatelessWidget {
                           label: 'Study with friends',
                           filled: false,
                           fullWidth: true,
-                          // Replace the opened-book overlay so backing out of
-                          // the circle returns to the shelf, not the book.
+                          // Same study, in "with friends" mode: discussion woven
+                          // under each task plus a group forum. Replace the
+                          // overlay so backing out returns to the shelf.
                           onTap: () => Navigator.of(context).pushReplacement(
                             MaterialPageRoute<void>(
-                              builder: (_) => StudyCircleScreen(book: book),
+                              builder: (_) => StudyScreen(
+                                book: book,
+                                circle: StudyCircle.seed(book.color),
+                              ),
                             ),
                           ),
                         ),

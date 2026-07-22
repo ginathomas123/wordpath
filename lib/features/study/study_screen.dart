@@ -11,6 +11,8 @@ import '../../data/study_progress.dart';
 import '../reader/data/bible_data.dart' as reader;
 import '../reader/reader_launch.dart';
 import 'data/key_verses.dart';
+import 'data/study_circle.dart';
+import 'widgets/circle_discussion.dart';
 import 'widgets/study_tools.dart';
 
 /// Finds the reader's canonical book for a reference name, tolerating the
@@ -106,9 +108,15 @@ List<_StudyEntry> buildStudyEntries(BibleBook book) {
 /// header, a horizontally scrolling chapter checklist, and a vertical stack of
 /// dreamy, soft-focus chapter cards.
 class StudyScreen extends StatefulWidget {
-  const StudyScreen({super.key, required this.book});
+  const StudyScreen({super.key, required this.book, this.circle});
 
   final BibleBook book;
+
+  /// When non-null, this is a "study with friends" session: the same study,
+  /// with a discussion thread woven under each task, a group forum at the
+  /// bottom, and the participants tucked behind a header "more" menu. When
+  /// null, the page renders as a solo study.
+  final StudyCircle? circle;
 
   /// A wide pool of atmospheric photos and textures the chapter cards draw
   /// from — nature (dune light, water, clouds, forest, sun, bokeh, topical
@@ -162,12 +170,106 @@ class _StudyScreenState extends State<StudyScreen> {
   final _scrollController = ScrollController();
   final _reflectFocus = FocusNode();
 
+  // Study-with-friends state (only used when widget.circle != null).
+  bool get _friends => widget.circle != null;
+  Map<int, String> _answers = {};
+  List<String> _ideas = [];
+  Map<String, String> _reactions = {};
+  Map<String, List<String>> _threadReplies = {};
+
   String get _studyId => widget.book.title;
 
   @override
   void initState() {
     super.initState();
     _reload();
+    if (_friends) _loadCircle();
+  }
+
+  Future<void> _loadCircle() async {
+    final answers = await CircleStore.loadAnswers(_studyId);
+    final ideas = await CircleStore.loadIdeas(_studyId);
+    final reactions = await CircleStore.loadReactions(_studyId);
+    final threads = await CircleStore.loadThreads(_studyId);
+    if (!mounted) return;
+    setState(() {
+      _answers = answers;
+      _ideas = ideas;
+      _reactions = reactions;
+      _threadReplies = threads;
+    });
+  }
+
+  bool _liked(String postId) => _reactions[postId] == 'like';
+
+  int _likeCount(CirclePost post) => post.likes + (_liked(post.id) ? 1 : 0);
+
+  Future<void> _like(String postId) async {
+    await CircleStore.toggleReaction(_studyId, postId, 'like');
+    setState(() {
+      if (_reactions[postId] == 'like') {
+        _reactions.remove(postId);
+      } else {
+        _reactions[postId] = 'like';
+      }
+    });
+  }
+
+  Future<void> _addThreadReply(String threadId) async {
+    final text = await composeCircleText(
+      context,
+      title: 'Add a comment',
+      hint: 'Share what this stirred in you\u2026',
+      accent: widget.book.color,
+    );
+    if (text == null || text.trim().isEmpty) return;
+    await CircleStore.addThreadReply(_studyId, threadId, text);
+    setState(() {
+      _threadReplies[threadId] = [...?_threadReplies[threadId], text.trim()];
+    });
+  }
+
+  Future<void> _answerQuestion(int index) async {
+    final text = await composeCircleText(
+      context,
+      title: widget.circle!.questions[index],
+      hint: 'Share your thoughts\u2026',
+      accent: widget.book.color,
+      initial: _answers[index],
+    );
+    if (text == null) return;
+    await CircleStore.saveAnswer(_studyId, index, text);
+    setState(() {
+      if (text.trim().isEmpty) {
+        _answers.remove(index);
+      } else {
+        _answers[index] = text.trim();
+      }
+    });
+  }
+
+  Future<void> _shareThought() async {
+    final text = await composeCircleText(
+      context,
+      title: 'Share your thoughts',
+      hint: 'A verse, a connection, a question for the group\u2026',
+      accent: widget.book.color,
+    );
+    if (text == null || text.trim().isEmpty) return;
+    await CircleStore.addIdea(_studyId, text);
+    setState(() => _ideas.add(text.trim()));
+  }
+
+  DiscussionThread _thread(String threadId) {
+    return DiscussionThread(
+      seededPosts: widget.circle!.seedThreadPosts(threadId),
+      yourReplies: _threadReplies[threadId] ?? const [],
+      accent: widget.book.color,
+      liked: _liked,
+      likeCount: _likeCount,
+      onLike: _like,
+      onAddReply: () => _addThreadReply(threadId),
+    );
   }
 
   @override
@@ -353,7 +455,12 @@ class _StudyScreenState extends State<StudyScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _Header(book: book),
+            _Header(
+              book: book,
+              onMore: _friends
+                  ? () => showCircleMembers(context, widget.circle!)
+                  : null,
+            ),
             MasteryMeter(
               readFrac: readFrac,
               understandFrac: understandFrac,
@@ -392,6 +499,8 @@ class _StudyScreenState extends State<StudyScreen> {
                       onTap: () => _openEntry(entries[index]),
                       onCommentary: () => _openCommentary(entries[index]),
                     ),
+                    if (_friends)
+                      _thread('ch:${entries[index].readerBook}:${entries[index].readerChapter}'),
                     const SizedBox(height: 18),
                   ],
                   const SizedBox(height: 6),
@@ -405,6 +514,7 @@ class _StudyScreenState extends State<StudyScreen> {
                       accent: accent,
                       onChanged: _reload,
                     ),
+                    if (_friends) _thread('kv:${kv.ref}'),
                     const SizedBox(height: 18),
                   ],
                   BibleBitesSection(bites: bitesFor(book.title), accent: accent),
@@ -416,6 +526,21 @@ class _StudyScreenState extends State<StudyScreen> {
                     onChanged: _reload,
                     focusNode: _reflectFocus,
                   ),
+                  if (_friends) ...[
+                    _thread('reflect'),
+                    const SizedBox(height: 28),
+                    GroupForum(
+                      circle: widget.circle!,
+                      answers: _answers,
+                      ideas: _ideas,
+                      accent: accent,
+                      liked: _liked,
+                      likeCount: _likeCount,
+                      onLike: _like,
+                      onReply: _answerQuestion,
+                      onShareThought: _shareThought,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -451,9 +576,12 @@ String _reflectPrompt(String studyTitle) =>
     'you can take this week in response?';
 
 class _Header extends StatelessWidget {
-  const _Header({required this.book});
+  const _Header({required this.book, this.onMore});
 
   final BibleBook book;
+
+  /// When set, shows a "more" (participants) button — used in friends mode.
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -468,17 +596,35 @@ class _Header extends StatelessWidget {
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: Text(
-              book.title,
-              style: AppFonts.serif(
-                color: context.palette.ink,
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  book.title,
+                  style: AppFonts.serif(
+                    color: context.palette.ink,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (onMore != null)
+                  Text(
+                    'Study with friends',
+                    style: AppFonts.sans(
+                      color: context.palette.inkSoft,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
             ),
           ),
-          // Overflow ("⋯") menu — hidden for now.
-          // AppIconButton(icon: LucideIcons.ellipsis, onPressed: () {}),
+          if (onMore != null)
+            AppIconButton(
+              icon: LucideIcons.users,
+              tooltip: 'Participants',
+              onPressed: onMore!,
+            ),
         ],
       ),
     );
