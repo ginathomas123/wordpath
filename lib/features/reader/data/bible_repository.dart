@@ -13,6 +13,26 @@ class ChapterContent {
 }
 
 class BibleRepository {
+  // Upstream KJV appends translator footnotes to the verse text, glued on as a
+  // "<chapter>.<verse>" reference followed by the note, e.g. "…already.1.5
+  // loins: Heb. thigh". KJV body text never contains a decimal number, so
+  // everything from the first "\d+\.\d+" to the end is footnotes and is cut.
+  static final RegExp _footnotes = RegExp(r'\s*\d+\.\d+[\s\S]*$');
+
+  // A raw paragraph pilcrow the dataset prefixes to some verses; the reader
+  // doesn't use it, so strip it rather than show a stray "¶".
+  static final RegExp _pilcrow = RegExp(r'^¶\s*');
+
+  static String _clean(String raw) {
+    return raw
+        .trim()
+        .replaceAll('\n', ' ')
+        .replaceAll(RegExp(r' {2,}'), ' ')
+        .replaceFirst(_footnotes, '')
+        .replaceFirst(_pilcrow, '')
+        .trim();
+  }
+
   static Future<ChapterContent> fetchChapter(String url) async {
     final response = await http.get(Uri.parse(url));
     if (response.statusCode != 200) {
@@ -26,13 +46,7 @@ class BibleRepository {
     for (final v in (json['data'] as List)) {
       final number = int.parse(v['verse'] as String);
       if (!seen.add(number)) continue;
-      verses.add(BibleVerse(
-        number: number,
-        text: (v['text'] as String)
-            .trim()
-            .replaceAll('\n', ' ')
-            .replaceAll(RegExp(r' {2,}'), ' '),
-      ));
+      verses.add(BibleVerse(number: number, text: _clean(v['text'] as String)));
     }
     return ChapterContent(verses: verses);
   }
