@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../app/fonts.dart';
@@ -13,6 +15,7 @@ import '../reader/reader_launch.dart';
 import 'data/key_verses.dart';
 import 'data/study_circle.dart';
 import 'widgets/circle_discussion.dart';
+import 'widgets/focus_session.dart';
 import 'widgets/study_tools.dart';
 
 /// Finds the reader's canonical book for a reference name, tolerating the
@@ -33,7 +36,6 @@ reader.BibleBook? _findReaderBook(String name) {
 /// checkmarks always agree.
 class _StudyEntry {
   const _StudyEntry({
-    required this.displayNumber,
     required this.readerBook,
     required this.readerChapter,
     required this.pillLabel,
@@ -41,9 +43,6 @@ class _StudyEntry {
     required this.preview,
     required this.seededComplete,
   });
-
-  /// 1-based position in the path (used by the chapter chips).
-  final int displayNumber;
 
   /// Reader book name + chapter this card opens and tracks.
   final String readerBook;
@@ -78,7 +77,6 @@ List<_StudyEntry> buildStudyEntries(BibleBook book) {
       return List.generate(count, (i) {
         final ch = refChapter + i;
         return _StudyEntry(
-          displayNumber: i + 1,
           readerBook: rb.name,
           readerChapter: ch,
           pillLabel: '${rb.name} $ch',
@@ -93,7 +91,6 @@ List<_StudyEntry> buildStudyEntries(BibleBook book) {
   return [
     for (final c in chaptersFor(book))
       _StudyEntry(
-        displayNumber: c.number,
         readerBook: book.title,
         readerChapter: c.number,
         pillLabel: '${book.title} ${c.number}',
@@ -159,7 +156,7 @@ class StudyScreen extends StatefulWidget {
   State<StudyScreen> createState() => _StudyScreenState();
 }
 
-class _StudyScreenState extends State<StudyScreen> {
+class _StudyScreenState extends State<StudyScreen> with WidgetsBindingObserver {
   Set<String> _read = {};
   StudyProgressData _progress = const StudyProgressData(
     understood: {},
@@ -169,6 +166,13 @@ class _StudyScreenState extends State<StudyScreen> {
 
   final _scrollController = ScrollController();
   final _reflectFocus = FocusNode();
+
+  // ─── Focus session (Layer 1: soft focus, gentle accountability) ─────────────
+  Timer? _focusTicker;
+  bool _focusActive = false;
+  bool _focusAway = false; // true while the app is backgrounded mid-session
+  Duration _focusElapsed = Duration.zero;
+  Duration? _focusTotal; // null == open-ended ("until I finish")
 
   // Study-with-friends state (only used when widget.circle != null).
   bool get _friends => widget.circle != null;
@@ -182,8 +186,31 @@ class _StudyScreenState extends State<StudyScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _reload();
     if (_friends) _loadCircle();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_focusActive) return;
+    if (state == AppLifecycleState.resumed) {
+      // Gentle accountability: no penalty — the timer simply paused while away.
+      if (_focusAway) {
+        setState(() => _focusAway = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(const SnackBar(
+              content: Text('Welcome back — your focus is still going.'),
+              duration: Duration(seconds: 2),
+            ));
+        }
+      }
+    } else {
+      // paused / inactive / hidden: stop counting until they return.
+      if (!_focusAway) setState(() => _focusAway = true);
+    }
   }
 
   Future<void> _loadCircle() async {
@@ -274,9 +301,53 @@ class _StudyScreenState extends State<StudyScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _focusTicker?.cancel();
     _scrollController.dispose();
     _reflectFocus.dispose();
     super.dispose();
+  }
+
+  // ─── Focus session control ──────────────────────────────────────────────────
+
+  Future<void> _openFocusStarter() async {
+    if (_focusActive) return; // already in a session; the bar handles ending
+    final minutes = await showFocusStarter(context, accent: widget.book.color);
+    if (minutes == null || !mounted) return;
+    _startFocus(minutes <= 0 ? null : Duration(minutes: minutes));
+  }
+
+  void _startFocus(Duration? total) {
+    _focusTicker?.cancel();
+    setState(() {
+      _focusActive = true;
+      _focusAway = false;
+      _focusElapsed = Duration.zero;
+      _focusTotal = total;
+    });
+    _focusTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_focusActive || _focusAway) return; // pause counting while away
+      setState(() => _focusElapsed += const Duration(seconds: 1));
+      final total = _focusTotal;
+      if (total != null && _focusElapsed >= total) _completeFocus();
+    });
+  }
+
+  void _endFocus() {
+    _focusTicker?.cancel();
+    setState(() => _focusActive = false);
+  }
+
+  void _completeFocus() {
+    _focusTicker?.cancel();
+    final minutes = _focusElapsed.inMinutes;
+    setState(() => _focusActive = false);
+    showFocusComplete(
+      context,
+      minutes: minutes < 1 ? 1 : minutes,
+      studyTitle: widget.book.title,
+      accent: widget.book.color,
+    );
   }
 
   Future<void> _reload() async {
@@ -457,10 +528,20 @@ class _StudyScreenState extends State<StudyScreen> {
           children: [
             _Header(
               book: book,
+              focusActive: _focusActive,
+              onFocus: _openFocusStarter,
               onMore: _friends
                   ? () => showCircleMembers(context, widget.circle!)
                   : null,
             ),
+            if (_focusActive)
+              FocusBar(
+                elapsed: _focusElapsed,
+                total: _focusTotal,
+                away: _focusAway,
+                accent: accent,
+                onEnd: _endFocus,
+              ),
             MasteryMeter(
               readFrac: readFrac,
               understandFrac: understandFrac,
@@ -481,15 +562,15 @@ class _StudyScreenState extends State<StudyScreen> {
               onMemorize: keyVerses.isEmpty ? null : () => _jumpMemorize(keyVerses),
               onReflect: _jumpReflect,
             ),
-            const SizedBox(height: 12),
-            _PathStrip(entries: entries, isRead: _isRead),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             Expanded(
               child: ListView(
                 controller: _scrollController,
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
                 physics: const BouncingScrollPhysics(),
                 children: [
+                  _SectionLabel(text: 'Read'),
+                  const SizedBox(height: 14),
                   for (int index = 0; index < entries.length; index++) ...[
                     _ChapterCard(
                       entry: entries[index],
@@ -503,8 +584,12 @@ class _StudyScreenState extends State<StudyScreen> {
                       _thread('ch:${entries[index].readerBook}:${entries[index].readerChapter}'),
                     const SizedBox(height: 18),
                   ],
-                  const SizedBox(height: 6),
-                  _SectionLabel(text: 'Go deeper'),
+                  const SizedBox(height: 10),
+                  _SectionLabel(text: 'Learn'),
+                  const SizedBox(height: 14),
+                  BibleBitesSection(bites: bitesFor(book.title), accent: accent),
+                  const SizedBox(height: 28),
+                  _SectionLabel(text: 'Memorize'),
                   const SizedBox(height: 14),
                   for (final kv in keyVerses) ...[
                     KeyVerseCard(
@@ -517,8 +602,9 @@ class _StudyScreenState extends State<StudyScreen> {
                     if (_friends) _thread('kv:${kv.ref}'),
                     const SizedBox(height: 18),
                   ],
-                  BibleBitesSection(bites: bitesFor(book.title), accent: accent),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 10),
+                  _SectionLabel(text: 'Reflect'),
+                  const SizedBox(height: 14),
                   ReflectCard(
                     studyId: _studyId,
                     prompt: _reflectPrompt(book.title),
@@ -576,12 +662,16 @@ String _reflectPrompt(String studyTitle) =>
     'you can take this week in response?';
 
 class _Header extends StatelessWidget {
-  const _Header({required this.book, this.onMore});
+  const _Header({required this.book, this.onMore, this.onFocus, this.focusActive = false});
 
   final BibleBook book;
 
   /// When set, shows a "more" (participants) button — used in friends mode.
   final VoidCallback? onMore;
+
+  /// Starts a focus session; the icon reflects the active state.
+  final VoidCallback? onFocus;
+  final bool focusActive;
 
   @override
   Widget build(BuildContext context) {
@@ -619,81 +709,19 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
+          if (onFocus != null)
+            AppIconButton(
+              icon: LucideIcons.timer,
+              tooltip: focusActive ? 'In focus' : 'Focus session',
+              onPressed: onFocus!,
+            ),
+          if (onFocus != null && onMore != null) const SizedBox(width: 12),
           if (onMore != null)
             AppIconButton(
               icon: LucideIcons.users,
               tooltip: 'Participants',
               onPressed: onMore!,
             ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The horizontal strip of chapter chips.
-class _PathStrip extends StatelessWidget {
-  const _PathStrip({required this.entries, required this.isRead});
-
-  final List<_StudyEntry> entries;
-  final bool Function(_StudyEntry) isRead;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 36,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        physics: const BouncingScrollPhysics(),
-        itemCount: entries.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final entry = entries[index];
-          return Center(
-            child: _ChapterChip(
-              label: 'Ch ${entry.displayNumber}',
-              done: isRead(entry),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ChapterChip extends StatelessWidget {
-  const _ChapterChip({required this.label, required this.done});
-
-  final String label;
-  final bool done;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-      decoration: BoxDecoration(
-        color: done ? context.palette.paperDim : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: done ? Colors.transparent : context.palette.inkFaint.withValues(alpha: 0.5),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (done) ...[
-            Icon(LucideIcons.check, size: 14, color: context.palette.inkSoft),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: AppFonts.sans(
-              color: done ? context.palette.ink : context.palette.inkSoft,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
         ],
       ),
     );
@@ -725,34 +753,41 @@ class _ChapterCard extends StatelessWidget {
       onTap: onTap,
       child: ClipRRect(
       borderRadius: BorderRadius.circular(20),
-      child: SizedBox(
-        height: 236,
+      // The card grows to fit its full summary (min height keeps the shorter
+      // cards looking substantial). The photo + scrims fill whatever height the
+      // content settles on, so nothing gets clipped.
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 236),
         child: Stack(
-          fit: StackFit.expand,
           children: [
-            Image.asset(image, fit: BoxFit.cover, cacheWidth: 800),
+            Positioned.fill(
+              child: Image.asset(image, fit: BoxFit.cover, cacheWidth: 800),
+            ),
             // Uniform 30% black overlay across the whole card for a consistent,
             // moodier tone regardless of the underlying photo/pattern.
-            const ColoredBox(color: Color(0x4D000000)),
+            const Positioned.fill(child: ColoredBox(color: Color(0x4D000000))),
             // Legibility scrim, heavier toward the bottom where the text sits.
             // These photos are often bright, so the bottom is nearly opaque.
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x33000000),
-                    Color(0x14000000),
-                    Color(0xE0000000),
-                  ],
-                  stops: [0.0, 0.42, 1.0],
+            const Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x33000000),
+                      Color(0x14000000),
+                      Color(0xE0000000),
+                    ],
+                    stops: [0.0, 0.42, 1.0],
+                  ),
                 ),
               ),
             ),
             Padding(
               padding: const EdgeInsets.all(18),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
@@ -764,7 +799,7 @@ class _ChapterCard extends StatelessWidget {
                       _CardCheckbox(checked: isRead),
                     ],
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 96),
                   Text(
                     entry.title,
                     style: AppFonts.serif(
@@ -777,8 +812,6 @@ class _ChapterCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     entry.preview,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                     style: AppFonts.sans(
                       color: Colors.white.withValues(alpha: 0.82),
                       fontSize: 13,

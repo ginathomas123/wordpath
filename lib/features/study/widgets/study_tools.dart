@@ -741,8 +741,6 @@ class _ReflectCardState extends State<ReflectCard> {
         children: [
           Row(
             children: [
-              Icon(LucideIcons.sprout, size: 16, color: widget.accent),
-              const SizedBox(width: 8),
               Text(
                 'REFLECT & APPLY',
                 style: AppFonts.sans(
@@ -776,15 +774,15 @@ class _ReflectCardState extends State<ReflectCard> {
               contentPadding: const EdgeInsets.all(12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: palette.inkFaint.withValues(alpha: 0.4)),
+                borderSide: BorderSide.none,
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: palette.inkFaint.withValues(alpha: 0.4)),
+                borderSide: BorderSide.none,
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: widget.accent),
+                borderSide: BorderSide.none,
               ),
             ),
           ),
@@ -963,34 +961,12 @@ class BibleBitesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Row(
-          children: [
-            Icon(LucideIcons.play, size: 15, color: accent),
-            const SizedBox(width: 6),
-            Text(
-              'BIBLEBITES',
-              style: AppFonts.sans(
-                color: palette.inkSoft,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            for (int i = 0; i < bites.length; i++) ...[
-              if (i > 0) const SizedBox(width: 14),
-              Expanded(child: _BiteCard(bites: bites, index: i, accent: accent)),
-            ],
-          ],
-        ),
+        for (int i = 0; i < bites.length; i++) ...[
+          if (i > 0) const SizedBox(width: 14),
+          Expanded(child: _BiteCard(bites: bites, index: i, accent: accent)),
+        ],
       ],
     );
   }

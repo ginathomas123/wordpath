@@ -216,12 +216,6 @@ class _DiscussionThreadState extends State<DiscussionThread> {
     final accent = widget.accent;
     return Container(
       margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.only(left: 12),
-      decoration: BoxDecoration(
-        border: Border(
-          left: BorderSide(color: accent.withValues(alpha: 0.35), width: 2),
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
