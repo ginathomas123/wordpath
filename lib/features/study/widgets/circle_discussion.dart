@@ -666,29 +666,34 @@ Future<void> showCircleMembers(BuildContext context, StudyCircle circle) {
   final palette = context.palette;
   return showModalBottomSheet<void>(
     context: context,
+    isScrollControlled: true,
     backgroundColor: palette.paper,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
     builder: (context) {
+      final maxHeight = MediaQuery.of(context).size.height * 0.85;
       return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: palette.inkFaint.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(2),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: palette.inkFaint.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-              ),
-              Text(
+                Text(
                 'Study circle',
                 style: AppFonts.serif(
                     color: palette.ink, fontSize: 22, fontWeight: FontWeight.w600),
@@ -715,6 +720,7 @@ Future<void> showCircleMembers(BuildContext context, StudyCircle circle) {
                 },
               ),
             ],
+          ),
           ),
         ),
       );
