@@ -822,6 +822,25 @@ class _DropCapVerseState extends State<_DropCapVerse> {
   void _onTapUp(TapUpDetails d) {
     final c = _charAt(d.localPosition);
     if (c == null) return;
+    // Tapping an existing highlight offers to remove it; otherwise look up the word.
+    if (_highlightAt(widget.storedHighlights, c) != null) {
+      _onHighlightTap(c, d.globalPosition);
+      return;
+    }
+    _lookUp(c);
+  }
+
+  Future<void> _onHighlightTap(int c, Offset globalPos) async {
+    final action = await showHighlightMenu(context, globalPos);
+    if (!mounted) return;
+    if (action == 'remove') {
+      widget.onRemove(widget.verse.number, c, c + 1);
+    } else if (action == 'lookup') {
+      _lookUp(c);
+    }
+  }
+
+  void _lookUp(int c) {
     final w = wordAtOffset(widget.verse.text, c);
     if (w == null) return;
     showWordInterlinear(
@@ -1148,10 +1167,28 @@ class _VerseRowState extends State<_VerseRow> {
   void _onLongPressCancel() =>
       setState(() { _active = false; _start = null; _end = null; });
 
-  // Single tap → reverse-interlinear popover for the tapped word.
+  // Single tap → remove-highlight popover if on a highlight, else word lookup.
   void _onTapUp(TapUpDetails d) {
     final c = _charAt(d.localPosition);
     if (c == null) return;
+    if (_highlightAt(widget.storedHighlights, c) != null) {
+      _onHighlightTap(c, d.globalPosition);
+      return;
+    }
+    _lookUp(c);
+  }
+
+  Future<void> _onHighlightTap(int c, Offset globalPos) async {
+    final action = await showHighlightMenu(context, globalPos);
+    if (!mounted) return;
+    if (action == 'remove') {
+      widget.onRemove(widget.verse.number, c, c + 1);
+    } else if (action == 'lookup') {
+      _lookUp(c);
+    }
+  }
+
+  void _lookUp(int c) {
     final w = wordAtOffset(widget.verse.text, c);
     if (w == null) return;
     showWordInterlinear(
@@ -1565,4 +1602,58 @@ class _PaperGrainPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter old) => false;
+}
+
+// ─── Highlight tap menu ──────────────────────────────────────────────────────
+
+/// The stored highlight covering character index [c], if any.
+HighlightEntry? _highlightAt(List<HighlightEntry> stored, int c) {
+  for (final h in stored) {
+    if (c >= h.start && c < h.end) return h;
+  }
+  return null;
+}
+
+/// A small popover shown when tapping an existing highlight: remove it, or fall
+/// through to the word lookup. Returns the chosen action or null if dismissed.
+Future<String?> showHighlightMenu(BuildContext context, Offset globalPos) {
+  final overlay =
+      Overlay.of(context).context.findRenderObject() as RenderBox?;
+  final size = overlay?.size ?? MediaQuery.of(context).size;
+  return showMenu<String>(
+    context: context,
+    color: BibleColors.ivoryPaper,
+    surfaceTintColor: Colors.transparent,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    position: RelativeRect.fromLTRB(
+      globalPos.dx,
+      globalPos.dy,
+      size.width - globalPos.dx,
+      size.height - globalPos.dy,
+    ),
+    items: [
+      PopupMenuItem<String>(
+        value: 'remove',
+        child: Row(
+          children: [
+            const Icon(LucideIcons.highlighter, size: 18, color: BibleColors.inkDark),
+            const SizedBox(width: 10),
+            Text('Remove highlight',
+                style: AppFonts.sans(color: BibleColors.inkDark, fontSize: 14)),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'lookup',
+        child: Row(
+          children: [
+            const Icon(LucideIcons.search, size: 18, color: BibleColors.inkDark),
+            const SizedBox(width: 10),
+            Text('Look up word',
+                style: AppFonts.sans(color: BibleColors.inkDark, fontSize: 14)),
+          ],
+        ),
+      ),
+    ],
+  );
 }
