@@ -3,6 +3,8 @@
          Debug builds get this automatically, but release APKs need it declared
          here or network requests silently fail. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Used by the memorize game's voice-recall step (speech_to_text). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="WordPath"
         android:name="${applicationName}"
@@ -61,6 +63,11 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Lets speech_to_text discover the on-device speech recognizer on
+             Android 11+ (package visibility). -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>
