@@ -831,6 +831,7 @@ class _DropCapVerseState extends State<_DropCapVerse> {
       verse: widget.verse.number,
       wordIndex: w.$1,
       word: w.$2,
+      verseText: widget.verse.text,
     );
   }
 
@@ -1160,6 +1161,7 @@ class _VerseRowState extends State<_VerseRow> {
       verse: widget.verse.number,
       wordIndex: w.$1,
       word: w.$2,
+      verseText: widget.verse.text,
     );
   }
 

@@ -86,6 +86,28 @@ class InterlinearRepository {
     return null;
   }
 
+  /// Returns the distinct Strong's numbers underlying a span of English words
+  /// (indices [start]..[end] inclusive, aligned via [words]), in first-appearance
+  /// order. Repeats are collapsed because one original word is frequently
+  /// rendered by several English words (and vice versa).
+  static Future<List<int>> strongsForRange(
+    int bookIndex,
+    int chapter,
+    int verse,
+    int start,
+    int end,
+    List<String> words,
+  ) async {
+    final out = <int>[];
+    final seen = <int>{};
+    for (int i = start; i <= end && i < words.length; i++) {
+      final s = await strongForWord(bookIndex, chapter, verse, i, words[i]);
+      if (s == null) continue;
+      if (seen.add(s)) out.add(s);
+    }
+    return out;
+  }
+
   // ── parsing ────────────────────────────────────────────────────────────────
 
   static final RegExp _noteMarker =
