@@ -27,7 +27,11 @@ class MasteryMeter extends StatelessWidget {
     required this.memorizeFrac,
     required this.applyFrac,
     required this.accent,
-    this.onCapstone,
+    this.onMastery,
+    this.onRead,
+    this.onLearn,
+    this.onMemorize,
+    this.onReflect,
   });
 
   final double readFrac;
@@ -35,7 +39,13 @@ class MasteryMeter extends StatelessWidget {
   final double memorizeFrac;
   final double applyFrac;
   final Color accent;
-  final VoidCallback? onCapstone;
+
+  /// Tapping a circle jumps straight into that track's next action.
+  final VoidCallback? onMastery;
+  final VoidCallback? onRead;
+  final VoidCallback? onLearn;
+  final VoidCallback? onMemorize;
+  final VoidCallback? onReflect;
 
   double get overall =>
       (readFrac + understandFrac + memorizeFrac + applyFrac) / 4;
@@ -70,13 +80,13 @@ class MasteryMeter extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _MeterCell(
-                    onTap: mastered ? onCapstone : null,
+                    onTap: onMastery,
                     child: _ProgressItem(value: overall, accent: accent, mastered: mastered),
                   ),
-                  _MeterCell(child: _TrackItem(icon: LucideIcons.bookOpen, label: 'Read', frac: readFrac, accent: accent)),
-                  _MeterCell(child: _TrackItem(icon: LucideIcons.bookMarked, label: 'Learn', frac: understandFrac, accent: accent)),
-                  _MeterCell(child: _TrackItem(icon: LucideIcons.brain, label: 'Memorize', frac: memorizeFrac, accent: accent)),
-                  _MeterCell(child: _TrackItem(icon: LucideIcons.sprout, label: 'Reflect', frac: applyFrac, accent: accent)),
+                  _MeterCell(onTap: onRead, child: _TrackItem(icon: LucideIcons.bookOpen, label: 'Read', frac: readFrac, accent: accent)),
+                  _MeterCell(onTap: onLearn, child: _TrackItem(icon: LucideIcons.bookMarked, label: 'Learn', frac: understandFrac, accent: accent)),
+                  _MeterCell(onTap: onMemorize, child: _TrackItem(icon: LucideIcons.brain, label: 'Memorize', frac: memorizeFrac, accent: accent)),
+                  _MeterCell(onTap: onReflect, child: _TrackItem(icon: LucideIcons.sprout, label: 'Reflect', frac: applyFrac, accent: accent)),
                 ],
               ),
             ),
@@ -674,12 +684,14 @@ class ReflectCard extends StatefulWidget {
     required this.prompt,
     required this.accent,
     required this.onChanged,
+    this.focusNode,
   });
 
   final String studyId;
   final String prompt;
   final Color accent;
   final VoidCallback onChanged;
+  final FocusNode? focusNode;
 
   @override
   State<ReflectCard> createState() => _ReflectCardState();
@@ -752,6 +764,7 @@ class _ReflectCardState extends State<ReflectCard> {
           const SizedBox(height: 12),
           TextField(
             controller: _controller,
+            focusNode: widget.focusNode,
             maxLines: 4,
             minLines: 3,
             style: AppFonts.sans(color: palette.ink, fontSize: 14, height: 1.4),
@@ -1328,6 +1341,36 @@ class _RailIcon extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Fetches a key verse's text and launches the memorize flow directly, without
+/// requiring the user to first find its card. Returns `true` if completed.
+Future<bool> startMemorizeForKeyVerse(
+  BuildContext context, {
+  required String studyId,
+  required KeyVerse keyVerse,
+  required Color accent,
+}) async {
+  String text;
+  try {
+    final rb = _readerBook(keyVerse.book);
+    if (rb == null) return false;
+    final content = await BibleRepository.fetchChapter(rb.chapterUrl(keyVerse.chapter));
+    text = content.verses
+        .where((v) => keyVerse.verses.contains(v.number))
+        .map((v) => v.text)
+        .join(' ');
+  } catch (_) {
+    return false;
+  }
+  if (text.isEmpty || !context.mounted) return false;
+  return openMemorizeSession(
+    context,
+    studyId: studyId,
+    ref: keyVerse.ref,
+    text: text,
+    accent: accent,
+  );
 }
 
 /// Finds the reader's canonical book for a name, tolerating "Psalm" → "Psalms".

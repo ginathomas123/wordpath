@@ -159,12 +159,22 @@ class _StudyScreenState extends State<StudyScreen> {
     reflected: {},
   );
 
+  final _scrollController = ScrollController();
+  final _reflectFocus = FocusNode();
+
   String get _studyId => widget.book.title;
 
   @override
   void initState() {
     super.initState();
     _reload();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _reflectFocus.dispose();
+    super.dispose();
   }
 
   Future<void> _reload() async {
@@ -203,6 +213,120 @@ class _StudyScreenState extends State<StudyScreen> {
     _reload();
   }
 
+  // ─── Mastery-circle shortcuts ──────────────────────────────────────────────
+  // Tapping a circle jumps straight into that track's next action: the first
+  // item that isn't yet complete (falling back to the first item once done).
+
+  void _jumpRead(List<_StudyEntry> entries) {
+    if (entries.isEmpty) return;
+    _openEntry(entries.firstWhere((e) => !_isRead(e), orElse: () => entries.first));
+  }
+
+  void _jumpLearn(List<_StudyEntry> entries) {
+    if (entries.isEmpty) return;
+    _openCommentary(
+        entries.firstWhere((e) => !_isUnderstood(e), orElse: () => entries.first));
+  }
+
+  Future<void> _jumpMemorize(List<KeyVerse> keyVerses) async {
+    if (keyVerses.isEmpty) return;
+    final kv = keyVerses.firstWhere(
+      (k) => !_progress.isMemorized(_studyId, k.ref),
+      orElse: () => keyVerses.first,
+    );
+    await startMemorizeForKeyVerse(
+      context,
+      studyId: _studyId,
+      keyVerse: kv,
+      accent: widget.book.color,
+    );
+    _reload();
+  }
+
+  Future<void> _jumpReflect() async {
+    if (_scrollController.hasClients) {
+      await _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+    if (mounted) _reflectFocus.requestFocus();
+  }
+
+  /// A gentle bottom sheet listing which tracks still need work — shown when the
+  /// mastery ring is tapped before the study is complete.
+  void _showWhatsLeft({
+    required double read,
+    required double understand,
+    required double memorize,
+    required double apply,
+  }) {
+    final accent = widget.book.color;
+    final rows = <(String, bool)>[
+      ('Read every chapter', read >= 0.999),
+      ('Learn the commentary', understand >= 0.999),
+      ('Memorize the key verses', memorize >= 0.999),
+      ('Reflect & apply', apply >= 0.999),
+    ];
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: context.palette.paper,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        final palette = context.palette;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'What\u2019s left',
+                  style: AppFonts.serif(
+                      color: palette.ink, fontSize: 22, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Finish all four tracks to unlock your capstone.',
+                  style: AppFonts.sans(color: palette.inkSoft, fontSize: 13.5),
+                ),
+                const SizedBox(height: 18),
+                for (final r in rows) ...[
+                  Row(
+                    children: [
+                      Icon(
+                        r.$2 ? LucideIcons.checkCircle2 : LucideIcons.circle,
+                        size: 20,
+                        color: r.$2 ? accent : palette.inkFaint,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        r.$1,
+                        style: AppFonts.sans(
+                          color: r.$2 ? palette.inkSoft : palette.ink,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ).copyWith(
+                          decoration:
+                              r.$2 ? TextDecoration.lineThrough : TextDecoration.none,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   double _frac(int done, int total) => total == 0 ? 0 : done / total;
 
   @override
@@ -236,16 +360,26 @@ class _StudyScreenState extends State<StudyScreen> {
               memorizeFrac: memorizeFrac,
               applyFrac: applyFrac,
               accent: accent,
-              onCapstone: mastered
+              onMastery: mastered
                   ? () => showCapstone(context,
                       studyTitle: book.title, keyVerses: keyVerses, accent: accent)
-                  : null,
+                  : () => _showWhatsLeft(
+                        read: readFrac,
+                        understand: understandFrac,
+                        memorize: memorizeFrac,
+                        apply: applyFrac,
+                      ),
+              onRead: () => _jumpRead(entries),
+              onLearn: () => _jumpLearn(entries),
+              onMemorize: keyVerses.isEmpty ? null : () => _jumpMemorize(keyVerses),
+              onReflect: _jumpReflect,
             ),
             const SizedBox(height: 12),
             _PathStrip(entries: entries, isRead: _isRead),
             const SizedBox(height: 8),
             Expanded(
               child: ListView(
+                controller: _scrollController,
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
                 physics: const BouncingScrollPhysics(),
                 children: [
@@ -280,6 +414,7 @@ class _StudyScreenState extends State<StudyScreen> {
                     prompt: _reflectPrompt(book.title),
                     accent: accent,
                     onChanged: _reload,
+                    focusNode: _reflectFocus,
                   ),
                 ],
               ),
