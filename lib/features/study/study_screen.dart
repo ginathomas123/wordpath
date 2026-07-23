@@ -8,98 +8,14 @@ import '../../app/theme.dart';
 import '../../app/widgets/app_icon_button.dart';
 import '../../data/bible_data.dart';
 import '../../data/read_progress.dart';
-import '../../data/study_data.dart';
 import '../../data/study_progress.dart';
-import '../reader/data/bible_data.dart' as reader;
 import '../reader/reader_launch.dart';
 import 'data/key_verses.dart';
 import 'data/study_circle.dart';
+import 'data/study_mastery.dart';
 import 'widgets/circle_discussion.dart';
 import 'widgets/focus_session.dart';
 import 'widgets/study_tools.dart';
-
-/// Finds the reader's canonical book for a reference name, tolerating the
-/// singular "Psalm" → "Psalms".
-reader.BibleBook? _findReaderBook(String name) {
-  final n = name.trim().toLowerCase();
-  for (final b in reader.bibleBooks) {
-    if (b.name.toLowerCase() == n) return b;
-  }
-  for (final b in reader.bibleBooks) {
-    if (b.name.toLowerCase() == '${n}s') return b;
-  }
-  return null;
-}
-
-/// One card on a study path, already resolved to the real scripture it opens
-/// and records progress against — so the reader location and the study
-/// checkmarks always agree.
-class _StudyEntry {
-  const _StudyEntry({
-    required this.readerBook,
-    required this.readerChapter,
-    required this.pillLabel,
-    required this.title,
-    required this.preview,
-    required this.seededComplete,
-  });
-
-  /// Reader book name + chapter this card opens and tracks.
-  final String readerBook;
-  final int readerChapter;
-
-  /// Reference label shown on the card (e.g. "PHILIPPIANS 4").
-  final String pillLabel;
-  final String title;
-  final String preview;
-
-  /// Seeded-complete flag from the curated study data.
-  final bool seededComplete;
-
-  String get readKey => ReadProgress.keyFor(readerBook, readerChapter);
-}
-
-/// Builds the study path for [book]. Canonical books (whose `attribution` is an
-/// author, e.g. "Moses") use their curated/generic chapters. Topical studies
-/// (whose `attribution` is a reference, e.g. "Ephesians 5") map to consecutive
-/// real chapters starting at the reference — only as many as actually exist, so
-/// each card is a distinct passage.
-List<_StudyEntry> buildStudyEntries(BibleBook book) {
-  final parts = book.attribution.trim().split(RegExp(r'\s+'));
-  final refChapter = parts.length >= 2 ? int.tryParse(parts.last) : null;
-
-  if (refChapter != null) {
-    final refName = parts.sublist(0, parts.length - 1).join(' ');
-    final rb = _findReaderBook(refName);
-    if (rb != null) {
-      final available = rb.chapterCount - refChapter + 1;
-      final count = available.clamp(1, 4);
-      return List.generate(count, (i) {
-        final ch = refChapter + i;
-        return _StudyEntry(
-          readerBook: rb.name,
-          readerChapter: ch,
-          pillLabel: '${rb.name} $ch',
-          title: book.title,
-          preview: book.about ?? 'Read ${rb.name} $ch.',
-          seededComplete: false,
-        );
-      });
-    }
-  }
-
-  return [
-    for (final c in chaptersFor(book))
-      _StudyEntry(
-        readerBook: book.title,
-        readerChapter: c.number,
-        pillLabel: '${book.title} ${c.number}',
-        title: c.title,
-        preview: c.preview,
-        seededComplete: c.completed,
-      ),
-  ];
-}
 
 /// The "Path to [book]" study screen reached from a book's Study action: a
 /// header, a horizontally scrolling chapter checklist, and a vertical stack of
@@ -358,13 +274,13 @@ class _StudyScreenState extends State<StudyScreen> with WidgetsBindingObserver {
 
   /// A card is checked when its real passage has been read (persisted) or it
   /// was seeded complete.
-  bool _isRead(_StudyEntry entry) =>
+  bool _isRead(StudyEntry entry) =>
       entry.seededComplete || _read.contains(entry.readKey);
 
-  bool _isUnderstood(_StudyEntry entry) =>
+  bool _isUnderstood(StudyEntry entry) =>
       _progress.isUnderstood(_studyId, entry.readerBook, entry.readerChapter);
 
-  Future<void> _openEntry(_StudyEntry entry) async {
+  Future<void> _openEntry(StudyEntry entry) async {
     await openReader(
       context,
       bookTitle: entry.readerBook,
@@ -375,7 +291,7 @@ class _StudyScreenState extends State<StudyScreen> with WidgetsBindingObserver {
     _reload();
   }
 
-  Future<void> _openCommentary(_StudyEntry entry) async {
+  Future<void> _openCommentary(StudyEntry entry) async {
     await showCommentarySheet(
       context,
       studyId: _studyId,
@@ -390,12 +306,12 @@ class _StudyScreenState extends State<StudyScreen> with WidgetsBindingObserver {
   // Tapping a circle jumps straight into that track's next action: the first
   // item that isn't yet complete (falling back to the first item once done).
 
-  void _jumpRead(List<_StudyEntry> entries) {
+  void _jumpRead(List<StudyEntry> entries) {
     if (entries.isEmpty) return;
     _openEntry(entries.firstWhere((e) => !_isRead(e), orElse: () => entries.first));
   }
 
-  void _jumpLearn(List<_StudyEntry> entries) {
+  void _jumpLearn(List<StudyEntry> entries) {
     if (entries.isEmpty) return;
     _openCommentary(
         entries.firstWhere((e) => !_isUnderstood(e), orElse: () => entries.first));
@@ -738,7 +654,7 @@ class _ChapterCard extends StatelessWidget {
     required this.onCommentary,
   });
 
-  final _StudyEntry entry;
+  final StudyEntry entry;
   final String image;
   final bool isRead;
   final bool understood;

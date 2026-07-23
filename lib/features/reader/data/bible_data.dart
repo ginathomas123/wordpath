@@ -13,9 +13,9 @@ class BibleBook {
     required this.chapterCount,
   });
 
-  String chapterUrl(int chapter) {
+  String chapterUrl(int chapter, {String edition = 'en-kjv'}) {
     final bookPath = apiName.replaceAll(' ', '');
-    return 'https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/en-kjv/books/$bookPath/chapters/$chapter.json';
+    return 'https://cdn.jsdelivr.net/gh/wldeh/bible-api/bibles/$edition/books/$bookPath/chapters/$chapter.json';
   }
 }
 

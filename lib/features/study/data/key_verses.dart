@@ -92,6 +92,17 @@ const Map<String, List<KeyVerse>> _kStudyKeyVerses = {
   'exodus': [
     KeyVerse(ref: 'Exodus 14:14', book: 'Exodus', chapter: 14, verses: [14]),
   ],
+  'leviticus': [
+    KeyVerse(ref: 'Leviticus 19:18', book: 'Leviticus', chapter: 19, verses: [18]),
+  ],
+  'numbers': [
+    KeyVerse(
+        ref: 'Numbers 6:24-26', book: 'Numbers', chapter: 6, verses: [24, 25, 26]),
+  ],
+  'deuteronomy': [
+    KeyVerse(
+        ref: 'Deuteronomy 6:5', book: 'Deuteronomy', chapter: 6, verses: [5]),
+  ],
   'psalms': [
     KeyVerse(
       ref: 'Psalm 23:1',
@@ -115,14 +126,26 @@ const Map<String, List<KeyVerse>> _kStudyKeyVerses = {
   'matthew': [
     KeyVerse(ref: 'Matthew 6:33', book: 'Matthew', chapter: 6, verses: [33]),
   ],
+  'mark': [
+    KeyVerse(ref: 'Mark 10:27', book: 'Mark', chapter: 10, verses: [27]),
+  ],
+  'luke': [
+    KeyVerse(ref: 'Luke 1:37', book: 'Luke', chapter: 1, verses: [37]),
+  ],
   'john': [
     KeyVerse(ref: 'John 3:16', book: 'John', chapter: 3, verses: [16]),
+  ],
+  'acts': [
+    KeyVerse(ref: 'Acts 1:8', book: 'Acts', chapter: 1, verses: [8]),
   ],
   'romans': [
     KeyVerse(ref: 'Romans 8:28', book: 'Romans', chapter: 8, verses: [28]),
   ],
   'philippians': [
     KeyVerse(ref: 'Philippians 4:6-7', book: 'Philippians', chapter: 4, verses: [6, 7]),
+  ],
+  'revelation': [
+    KeyVerse(ref: 'Revelation 3:20', book: 'Revelation', chapter: 3, verses: [20]),
   ],
 };
 

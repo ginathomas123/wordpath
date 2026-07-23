@@ -18,6 +18,7 @@ class BookShelf extends StatelessWidget {
     required this.intro,
     required this.introStart,
     this.onBookTap,
+    this.masteredTitles = const {},
   });
 
   final BibleSection section;
@@ -27,6 +28,9 @@ class BookShelf extends StatelessWidget {
   final double introStart;
 
   final void Function(BibleBook book, Rect origin)? onBookTap;
+
+  /// Titles of books whose study is fully complete — those covers get a seal.
+  final Set<String> masteredTitles;
 
   static const double _bookWidth = 118;
   static const double _bookHeight = 176;
@@ -111,6 +115,7 @@ class BookShelf extends StatelessWidget {
                               book: book,
                               width: _bookWidth,
                               height: _bookHeight,
+                              isMastered: masteredTitles.contains(book.title),
                             ),
                           ),
                         ),

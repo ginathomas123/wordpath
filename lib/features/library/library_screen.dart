@@ -12,6 +12,7 @@ import '../../app/widgets/app_icon_button.dart';
 import '../../data/home_widget_service.dart';
 import '../reader/data/bible_data.dart' as reader;
 import '../reader/reader_launch.dart';
+import '../study/data/study_mastery.dart';
 import 'add_menu.dart';
 import 'book_open_route.dart';
 import 'library_controller.dart';
@@ -37,11 +38,33 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
 
   StreamSubscription<Uri?>? _widgetClickSub;
 
+  /// Titles of books whose study is fully complete — drives the cover seal.
+  Set<String> _mastered = {};
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _intro.forward());
     _initWidgetLaunch();
+    _loadMastery();
+  }
+
+  /// Reloads which studies are complete from persisted progress. Called on
+  /// entry and whenever we return from a book (a study may have just finished).
+  Future<void> _loadMastery() async {
+    final books = [
+      for (final s in ref.read(libraryProvider)) ...s.books,
+    ];
+    final map = await loadMasteredTitles(books);
+    if (!mounted) return;
+    final done = {
+      for (final e in map.entries)
+        if (e.value) e.key,
+    };
+    if (done.length != _mastered.length ||
+        !done.containsAll(_mastered)) {
+      setState(() => _mastered = done);
+    }
   }
 
   @override
@@ -120,8 +143,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 section: sections[index],
                 intro: _intro,
                 introStart: _sectionStart(index),
-                onBookTap: (book, origin) =>
-                    Navigator.of(context).push(bookOpenRoute(book, origin)),
+                masteredTitles: _mastered,
+                onBookTap: (book, origin) async {
+                  await Navigator.of(context).push(bookOpenRoute(book, origin));
+                  // A study may have been completed while inside — re-check.
+                  _loadMastery();
+                },
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
