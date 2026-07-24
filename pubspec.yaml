@@ -77,6 +77,9 @@ flutter:
     # Strong's Hebrew/Greek dictionaries (public-domain) powering the
     # tap-a-word interlinear popover. Bundled so look-ups are instant/offline.
     - assets/lexicon/
+    # Bible atlas: curated places (OpenBible.info, CC-BY) + a clipped land
+    # outline (Natural Earth, public domain) for the tap-a-place map.
+    - assets/maps/
 
   fonts:
     - family: Newsreader

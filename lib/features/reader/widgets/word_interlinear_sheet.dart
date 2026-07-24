@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../app/fonts.dart';
 import '../data/bible_data.dart';
 import '../data/interlinear_repository.dart';
 import '../data/lexicon.dart';
+import '../maps/bible_atlas_screen.dart';
+import '../maps/bible_map_data.dart';
 import '../theme/bible_theme.dart';
 
 /// Matches the reader's word tokenization so word indices line up with
@@ -68,6 +71,7 @@ class _WordSheetState extends State<_WordSheet> {
   bool _loading = true;
   List<LexEntry> _entries = [];
   int _reqId = 0;
+  bool _geoReady = false;
 
   bool get _isHebrew => bibleBooks[widget.bookIndex].isOT;
   bool get _canExtendLeft => _start > 0;
@@ -81,6 +85,19 @@ class _WordSheetState extends State<_WordSheet> {
   void initState() {
     super.initState();
     _resolve();
+    BibleGeo.ensureLoaded().then((_) {
+      if (mounted) setState(() => _geoReady = true);
+    });
+  }
+
+  /// The place matched by the currently selected word/phrase, if any.
+  MapPlace? get _place =>
+      _geoReady ? BibleGeo.match(_words.sublist(_start, _end + 1)) : null;
+
+  void _openMap(MapPlace place) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => BibleAtlasScreen(focus: place),
+    ));
   }
 
   Future<void> _resolve() async {
@@ -188,6 +205,10 @@ class _WordSheetState extends State<_WordSheet> {
                     ],
                   ],
                 ),
+                if (_place != null) ...[
+                  const SizedBox(height: 14),
+                  _MapChip(place: _place!, onTap: () => _openMap(_place!)),
+                ],
                 const SizedBox(height: 16),
                 Flexible(
                   child: SingleChildScrollView(
@@ -514,6 +535,47 @@ class _StrongChip extends StatelessWidget {
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
           color: BibleColors.inkMid,
+        ),
+      ),
+    );
+  }
+}
+
+/// "View on map" affordance shown when the selected word is a known place.
+class _MapChip extends StatelessWidget {
+  final MapPlace place;
+  final VoidCallback onTap;
+  const _MapChip({required this.place, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: BibleColors.ribbonBurgundy.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const Icon(LucideIcons.mapPin,
+                size: 17, color: BibleColors.ribbonBurgundy),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'View ${place.name} on map',
+                style: AppFonts.sans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: BibleColors.inkDark,
+                ),
+              ),
+            ),
+            const Icon(LucideIcons.chevronRight,
+                size: 16, color: BibleColors.inkLight),
+          ],
         ),
       ),
     );
