@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/bible_data.dart';
+import '../maps/bible_map_data.dart';
 import '../theme/bible_theme.dart';
 
 class HighlightEntry {
@@ -83,6 +84,69 @@ List<TextSpan> buildHighlightedSpans(
   }
   if (pos < verseText.length) {
     spans.add(TextSpan(text: verseText.substring(pos), style: base));
+  }
+  return spans;
+}
+
+/// Muted burgundy used for the dotted underline under place names.
+const Color _placeUnderline = Color(0x807A1828);
+
+/// Like [buildHighlightedSpans], but also draws a subtle dotted underline
+/// beneath recognized place names so the tap-to-map feature is discoverable.
+List<TextSpan> buildReaderSpans(
+  String verseText,
+  List<HighlightEntry> versHighlights,
+  TextStyle base,
+) {
+  final places = BibleGeo.placeRangesIn(verseText);
+  if (versHighlights.isEmpty && places.isEmpty) {
+    return [TextSpan(text: verseText, style: base)];
+  }
+
+  final len = verseText.length;
+  final cuts = <int>{0, len};
+  for (final h in versHighlights) {
+    cuts.add(h.start.clamp(0, len));
+    cuts.add(h.end.clamp(0, len));
+  }
+  for (final p in places) {
+    cuts.add(p[0].clamp(0, len));
+    cuts.add(p[1].clamp(0, len));
+  }
+  final bounds = cuts.toList()..sort();
+
+  final spans = <TextSpan>[];
+  for (var i = 0; i < bounds.length - 1; i++) {
+    final s = bounds[i];
+    final e = bounds[i + 1];
+    if (s >= e) continue;
+
+    Color? bg;
+    for (final h in versHighlights) {
+      if (h.start <= s && h.end >= e && h.start < h.end) {
+        bg = h.color;
+        break;
+      }
+    }
+    var isPlace = false;
+    for (final p in places) {
+      if (p[0] <= s && p[1] >= e) {
+        isPlace = true;
+        break;
+      }
+    }
+
+    var style = base;
+    if (bg != null) style = style.copyWith(backgroundColor: bg);
+    if (isPlace) {
+      style = style.copyWith(
+        decoration: TextDecoration.underline,
+        decorationStyle: TextDecorationStyle.dotted,
+        decorationColor: _placeUnderline,
+        decorationThickness: 1.4,
+      );
+    }
+    spans.add(TextSpan(text: verseText.substring(s, e), style: style));
   }
   return spans;
 }

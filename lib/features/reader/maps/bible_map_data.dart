@@ -99,6 +99,33 @@ class BibleGeo {
   static String _norm(String w) =>
       w.toLowerCase().replaceAll(RegExp(r"[^a-z\-]"), '');
 
+  static final RegExp _wordRe = RegExp(r"[A-Za-z][A-Za-z'\-]*");
+
+  /// Whether a single word resolves to a known place.
+  static bool isPlace(String word) {
+    final idx = _index;
+    if (idx == null) return false;
+    final key = _norm(word);
+    if (key.isEmpty) return false;
+    return idx.containsKey(_aliases[key] ?? key);
+  }
+
+  /// Char ranges `[start, end)` of words in [text] that name a known place —
+  /// used by the reader to underline them so the map is discoverable.
+  static List<List<int>> placeRangesIn(String text) {
+    final idx = _index;
+    if (idx == null) return const [];
+    final ranges = <List<int>>[];
+    for (final m in _wordRe.allMatches(text)) {
+      final key = _norm(m.group(0)!);
+      if (key.isEmpty) continue;
+      if (idx.containsKey(_aliases[key] ?? key)) {
+        ranges.add([m.start, m.end]);
+      }
+    }
+    return ranges;
+  }
+
   /// First place matched among [words] (handles KJV alias spellings), or null.
   static MapPlace? match(Iterable<String> words) {
     final idx = _index;

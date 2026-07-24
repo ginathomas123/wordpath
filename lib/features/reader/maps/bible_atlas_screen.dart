@@ -205,16 +205,13 @@ class _AtlasPainter extends CustomPainter {
       canvas.drawLine(Offset(0, py(lat)), Offset(size.width, py(lat)), grat);
     }
 
-    // Neighbor places.
-    for (final p in neighbors) {
-      final o = proj(p.lon, p.lat);
-      canvas.drawCircle(o, 2.6, Paint()..color = _neighborInk.withValues(alpha: 0.75));
-      _label(canvas, p.name, o + const Offset(7, -6), _neighborInk, 11,
-          FontWeight.w500);
-    }
+    // Rects already occupied by labels — used to drop overlapping ones so the
+    // map never smears into an unreadable stack of names.
+    final placed = <Rect>[];
 
-    // Focus — confidence halo (if approximate), then marker + label.
     final f = proj(focus.lon, focus.lat);
+
+    // Focus confidence halo (if the location is uncertain).
     if (focus.approx) {
       const r = 46.0;
       final halo = Paint()
@@ -226,22 +223,48 @@ class _AtlasPainter extends CustomPainter {
         ).createShader(Rect.fromCircle(center: f, radius: r));
       canvas.drawCircle(f, r, halo);
     }
-    // Marker: white halo ring + accent dot.
+
+    // Neighbor dots — skip any that sit essentially on top of the focus pin.
+    final neighborPos = <MapPlace, Offset>{};
+    for (final p in neighbors) {
+      final o = proj(p.lon, p.lat);
+      if ((o - f).distance < 18) continue;
+      canvas.drawCircle(
+          o, 2.6, Paint()..color = _neighborInk.withValues(alpha: 0.75));
+      neighborPos[p] = o;
+    }
+
+    // Focus marker: white halo ring + accent dot. Reserve the pin so no label
+    // is drawn over it.
     canvas.drawCircle(f, 8.5, Paint()..color = Colors.white);
     canvas.drawCircle(
-        f, 8.5, Paint()
-      ..color = _accent.withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1);
+        f,
+        8.5,
+        Paint()
+          ..color = _accent.withValues(alpha: 0.35)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1);
     canvas.drawCircle(f, 5, Paint()..color = _accent);
+    placed.add(Rect.fromCircle(center: f, radius: 13));
 
-    _label(canvas, focus.name, f + const Offset(0, -30), _focusInk, 15,
-        FontWeight.w700, center: true, background: true);
+    // Focus label always wins (drawn + reserved first).
+    _placeLabel(canvas, placed, focus.name, f + const Offset(0, -30), _focusInk,
+        15, FontWeight.w700,
+        center: true, force: true);
+
+    // Neighbor labels, closest first; any that would overlap are dropped.
+    for (final entry in neighborPos.entries) {
+      _placeLabel(canvas, placed, entry.key.name, entry.value + const Offset(7, -6),
+          _neighborInk, 11, FontWeight.w600);
+    }
   }
 
-  void _label(Canvas canvas, String text, Offset at, Color color, double size,
-      FontWeight weight,
-      {bool center = false, bool background = false}) {
+  /// Draws a label with a legibility background, unless it would collide with an
+  /// already-placed label (skipped when [force] is false). Returns whether it
+  /// was drawn.
+  bool _placeLabel(Canvas canvas, List<Rect> placed, String text, Offset at,
+      Color color, double size, FontWeight weight,
+      {bool center = false, bool force = false}) {
     final tp = TextPainter(
       text: TextSpan(
         text: text,
@@ -251,14 +274,20 @@ class _AtlasPainter extends CustomPainter {
     )..layout();
     var origin = at;
     if (center) origin = at - Offset(tp.width / 2, tp.height / 2);
-    if (background) {
-      final r = RRect.fromRectAndRadius(
-        Rect.fromLTWH(origin.dx - 6, origin.dy - 3, tp.width + 12, tp.height + 6),
-        const Radius.circular(6),
-      );
-      canvas.drawRRect(r, Paint()..color = const Color(0xE6FFFFFF));
+    final rect =
+        Rect.fromLTWH(origin.dx - 5, origin.dy - 2, tp.width + 10, tp.height + 4);
+    if (!force) {
+      for (final r in placed) {
+        if (r.overlaps(rect)) return false;
+      }
     }
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(5)),
+      Paint()..color = const Color(0xE6FFFFFF),
+    );
     tp.paint(canvas, origin);
+    placed.add(rect);
+    return true;
   }
 
   @override

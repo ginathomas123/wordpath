@@ -15,6 +15,7 @@ import '../data/bible_data.dart';
 import '../data/bible_repository.dart';
 import '../data/bible_versions.dart';
 import '../data/bookmark_data.dart';
+import '../maps/bible_map_data.dart';
 import 'bookmarks_screen.dart';
 import 'highlights_screen.dart';
 import '../data/highlight_data.dart';
@@ -92,6 +93,9 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
   // One-time coach hint teaching the press-and-drag highlight gesture.
   bool _showHighlightHint = false;
 
+  // One-time coach hint teaching tap-a-place-name to open the map.
+  bool _showMapHint = false;
+
   // Marks the current chapter read after a brief dwell (so quick swipe-throughs
   // don't count as "read").
   Timer? _readTimer;
@@ -149,6 +153,8 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
     _loadHighlights();
     _loadBookmarks();
     _maybeShowHighlightHint();
+    // Warm the atlas index so the "View on map" chip is ready on the first tap.
+    BibleGeo.ensureLoaded();
   }
 
   /// Restores the saved translation before the first fetch so the reader opens
@@ -180,6 +186,26 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
 
   void _dismissHighlightHint() {
     if (_showHighlightHint) setState(() => _showHighlightHint = false);
+  }
+
+  /// Show the map coaching hint once ever — only when the current chapter
+  /// actually contains a place name, so the tip is relevant.
+  Future<void> _maybeShowMapHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('seenMapHint') ?? false) return;
+    final verses = _currContent?.verses ?? const [];
+    final hasPlace =
+        verses.any((v) => BibleGeo.placeRangesIn(v.text).isNotEmpty);
+    if (!hasPlace) return;
+    // Let the highlight hint clear first so the two never stack.
+    await Future<void>.delayed(const Duration(milliseconds: 6000));
+    if (!mounted || _showHighlightHint) return;
+    setState(() => _showMapHint = true);
+    await prefs.setBool('seenMapHint', true);
+  }
+
+  void _dismissMapHint() {
+    if (_showMapHint) setState(() => _showMapHint = false);
   }
 
   @override
@@ -407,6 +433,7 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
       setState(() { _currContent = content; _loading = false; });
       _persist();
       _loadNeighbors();
+      _maybeShowMapHint();
       if (_ttsResumeOnLoad) _resumeAudioAfterLoad();
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _loading = false; });
@@ -730,6 +757,20 @@ class _ReadingScreenState extends State<ReadingScreen> with TickerProviderStateM
               bottom: MediaQuery.of(context).padding.bottom + 78,
               child: Center(
                 child: _HighlightHint(onDismiss: _dismissHighlightHint),
+              ),
+            ),
+
+          if (_showMapHint)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: MediaQuery.of(context).padding.bottom + 78,
+              child: Center(
+                child: _HighlightHint(
+                  onDismiss: _dismissMapHint,
+                  icon: LucideIcons.mapPin,
+                  text: 'Tap an underlined place to see it on a map',
+                ),
               ),
             ),
 
@@ -1184,7 +1225,7 @@ class _DropCapVerseState extends State<_DropCapVerse> {
                         child: Text('${widget.verse.number}', style: widget.verseNumStyle),
                       ),
                     ),
-                    ...buildHighlightedSpans(rest, _shift(allHighlights), bodyStyle),
+                    ...buildReaderSpans(rest, _shift(allHighlights), bodyStyle),
                   ],
                 ),
               ),
@@ -1255,7 +1296,13 @@ class _ChapterNavBar extends StatelessWidget {
 
 class _HighlightHint extends StatefulWidget {
   final VoidCallback onDismiss;
-  const _HighlightHint({required this.onDismiss});
+  final IconData icon;
+  final String text;
+  const _HighlightHint({
+    required this.onDismiss,
+    this.icon = LucideIcons.highlighter,
+    this.text = 'Press and hold, then drag to highlight',
+  });
 
   @override
   State<_HighlightHint> createState() => _HighlightHintState();
@@ -1317,14 +1364,14 @@ class _HighlightHintState extends State<_HighlightHint>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  LucideIcons.highlighter,
+                Icon(
+                  widget.icon,
                   size: 18,
                   color: BibleColors.goldAccent,
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  'Press and hold, then drag to highlight',
+                  widget.text,
                   style: GoogleFonts.cormorantGaramond(
                     fontSize: 15,
                     height: 1.1,
@@ -1511,7 +1558,7 @@ class _VerseRowState extends State<_VerseRow> {
                   child: Text('${widget.verse.number}', style: widget.verseNumStyle),
                 ),
               ),
-            ...buildHighlightedSpans(
+            ...buildReaderSpans(
               '${widget.verse.text} ',
               allHighlights,
               bodyStyle,

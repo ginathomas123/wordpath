@@ -71,7 +71,6 @@ class _WordSheetState extends State<_WordSheet> {
   bool _loading = true;
   List<LexEntry> _entries = [];
   int _reqId = 0;
-  bool _geoReady = false;
 
   bool get _isHebrew => bibleBooks[widget.bookIndex].isOT;
   bool get _canExtendLeft => _start > 0;
@@ -85,14 +84,16 @@ class _WordSheetState extends State<_WordSheet> {
   void initState() {
     super.initState();
     _resolve();
+    // Usually already preloaded by the reader; rebuild if it lands mid-sheet.
     BibleGeo.ensureLoaded().then((_) {
-      if (mounted) setState(() => _geoReady = true);
+      if (mounted) setState(() {});
     });
   }
 
   /// The place matched by the currently selected word/phrase, if any.
-  MapPlace? get _place =>
-      _geoReady ? BibleGeo.match(_words.sublist(_start, _end + 1)) : null;
+  /// [BibleGeo.match] is null-safe before the atlas loads; [_geoReady] just
+  /// forces a rebuild once it has (in case the sheet opened mid-load).
+  MapPlace? get _place => BibleGeo.match(_words.sublist(_start, _end + 1));
 
   void _openMap(MapPlace place) {
     Navigator.of(context).push(MaterialPageRoute<void>(
